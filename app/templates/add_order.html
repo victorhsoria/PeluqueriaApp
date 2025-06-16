@@ -1,0 +1,59 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Crear Nuevo Pedido</h1>
+
+<div class="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-xl">
+    <form method="POST" id="orderForm">
+        <div class="mb-5">
+            <label for="order_date" class="block text-gray-700 text-sm font-bold mb-2">Fecha del Pedido:</label>
+            <input type="date" id="order_date" name="order_date" 
+                   value="{{ today_date }}" 
+                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" 
+                   required>
+        </div>
+
+        <h2 class="text-2xl font-semibold mb-4 text-gray-800">Items del Pedido</h2>
+        <div id="order-items-container" class="space-y-6 mb-6">
+            <!-- Los items del pedido se añadirán aquí con JavaScript -->
+        </div>
+
+        <div class="mb-6">
+            <button type="button" id="add-item-btn" class="btn bg-purple-600 hover:bg-purple-700 w-full py-2.5">
+                + Añadir Producto al Pedido
+            </button>
+        </div>
+
+        <div class="text-right text-2xl font-bold text-gray-800 mb-6">
+            Total del Pedido: <span id="total-order-price">$0.00</span>
+            <input type="hidden" name="total_order_price" id="hidden-total-order-price">
+        </div>
+
+        <div class="flex items-center justify-between">
+            <button type="submit" class="btn bg-blue-600 hover:bg-blue-700">
+                Guardar Pedido
+            </button>
+            <a href="{{ url_for('orders') }}" class="btn bg-gray-500 hover:bg-gray-600">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Establecer la fecha actual por defecto en el campo de fecha del pedido
+    // Y cargar productos para el dropdown, luego añadir el primer ítem
+    window.onload = async function() { // Make window.onload async
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        document.getElementById('order_date').value = `${year}-${month}-${day}`;
+        
+        // Carga los productos para el dropdown y espera a que terminen
+        await fetchProductsForDropdown(); 
+        
+        // Añade un item de pedido por defecto SOLO DESPUÉS de que los productos estén cargados
+        addItemToOrder();
+    };
+</script>
+
+{% endblock %}

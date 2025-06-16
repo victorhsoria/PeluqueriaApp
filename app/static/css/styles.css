@@ -1,0 +1,17 @@
+/* Puedes agregar estilos CSS personalizados aquí.
+   La mayoría de los estilos se aplicarán directamente en el HTML usando clases de Tailwind CSS. */
+
+/* Ejemplo: animación sutil para botones al pasar el ratón */
+.btn {
+    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Estilos para el campo de entrada de archivo personalizado si decides usarlo */
+input[type="file"] {
+    cursor: pointer;
+}

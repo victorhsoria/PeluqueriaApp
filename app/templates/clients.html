@@ -1,0 +1,55 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Gestión de Clientes</h1>
+
+<div class="mb-6 flex justify-between items-center">
+    <a href="{{ url_for('client_stats') }}" class="btn bg-purple-600 hover:bg-purple-700">
+        Ver Estadísticas
+    </a>
+    <a href="{{ url_for('add_client') }}" class="btn btn-green">
+        + Agregar Nuevo Cliente
+    </a>
+</div>
+
+<div class="bg-white p-6 rounded-lg shadow-xl overflow-x-auto">
+    {% if clients %}
+    <table class="min-w-full bg-white table-auto border-collapse">
+        <thead class="bg-gray-100">
+            <tr>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider rounded-tl-lg">ID</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Nombre</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Apellido</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Teléfono</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider rounded-tr-lg">Acciones</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for client in clients %}
+            <tr class="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ client.id }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ client.first_name }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ client.last_name }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ client.phone if client.phone else 'N/A' }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                    <a href="{{ url_for('client_detail', client_id=client.id) }}" class="inline-block bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out mr-2">
+                        Ver Detalles
+                    </a>
+                    <a href="{{ url_for('edit_client', client_id=client.id) }}" class="inline-block bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out mr-2">
+                        Editar
+                    </a>
+                    <form action="{{ url_for('delete_client', client_id=client.id) }}" method="post" class="inline-block" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus turnos/trabajos asociados?');">
+                        <button type="submit" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out">
+                            Eliminar
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-center text-gray-600 text-lg">No hay clientes registrados todavía.</p>
+    {% endif %}
+</div>
+{% endblock %}

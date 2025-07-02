@@ -1,0 +1,38 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h1 class="text-4xl font-bold text-center mb-8 text-gray-800">{{ title }}</h1>
+
+<div class="max-w-xl mx-auto bg-white p-8 rounded-lg shadow-xl">
+    <form method="POST">
+        <div class="mb-5">
+            <label for="first_name" class="block text-gray-700 text-sm font-bold mb-2">Nombre:</label>
+            <input type="text" id="first_name" name="first_name" value="{{ client.first_name if client else '' }}" 
+                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" 
+                   required>
+        </div>
+        <div class="mb-5">
+            <label for="last_name" class="block text-gray-700 text-sm font-bold mb-2">Apellido:</label>
+            <input type="text" id="last_name" name="last_name" value="{{ client.last_name if client else '' }}" 
+                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" 
+                   required>
+        </div>
+        <div class="mb-5">
+            <label for="address" class="block text-gray-700 text-sm font-bold mb-2">Dirección (Opcional):</label>
+            <input type="text" id="address" name="address" value="{{ client.address if client else '' }}" 
+                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
+        </div>
+        <div class="mb-6">
+            <label for="phone" class="block text-gray-700 text-sm font-bold mb-2">Celular (Opcional):</label>
+            <input type="text" id="phone" name="phone" value="{{ client.phone if client else '' }}" 
+                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
+        </div>
+        <div class="flex items-center justify-between">
+            <button type="submit" class="btn bg-blue-600 hover:bg-blue-700">
+                {{ 'Actualizar Cliente' if client else 'Agregar Cliente' }}
+            </button>
+            <a href="{{ url_for('clients') }}" class="btn bg-gray-500 hover:bg-gray-600">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

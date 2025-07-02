@@ -1,0 +1,112 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Detalle del Cliente</h1>
+
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl mb-8">
+    <h2 class="text-3xl font-semibold mb-6 text-gray-800">{{ client.first_name }} {{ client.last_name }}</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-lg mb-6">
+        <div>
+            <p><strong class="text-gray-700">ID:</strong> {{ client.id }}</p>
+            <p><strong class="text-gray-700">Dirección:</strong> {{ client.address if client.address else 'N/A' }}</p>
+        </div>
+        <div>
+            <p><strong class="text-gray-700">Celular:</strong> {{ client.phone if client.phone else 'N/A' }}</p>
+        </div>
+    </div>
+    <div class="text-right">
+        <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn bg-yellow-500 hover:bg-yellow-600 mr-2">Editar Cliente</a>
+        <form action="{{ url_for('delete_client', client_id=client.id) }}" method="post" class="inline-block" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus turnos/trabajos asociados?');">
+            <button type="submit" class="btn bg-red-500 hover:bg-red-600">Eliminar Cliente</button>
+        </form>
+    </div>
+</div>
+
+<!-- Sección de Turnos -->
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl mb-8">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-gray-800">Turnos</h2>
+        <a href="{{ url_for('add_appointment', client_id=client.id) }}" class="btn btn-green text-sm px-3 py-1.5">
+            + Agregar Turno
+        </a>
+    </div>
+    {% if client.appointments %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white table-auto border-collapse">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Fecha y Hora</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Descripción</th>
+                    <th class="px-4 py-3 text-center text-sm font-medium text-gray-600 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for appointment in client.appointments | sort(attribute='date_time', reverse=true) %}
+                <tr class="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ appointment.date_time.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900">{{ appointment.description }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-center">
+                        <a href="{{ url_for('edit_appointment', client_id=client.id, appointment_id=appointment.id) }}" class="inline-block bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out mr-2">
+                            Editar
+                        </a>
+                        <form action="{{ url_for('delete_appointment', client_id=client.id, appointment_id=appointment.id) }}" method="post" class="inline-block" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este turno?');">
+                            <button type="submit" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out">
+                                Eliminar
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600 text-base">No hay turnos registrados para este cliente.</p>
+    {% endif %}
+</div>
+
+<!-- Sección de Trabajos Realizados -->
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-gray-800">Trabajos Realizados</h2>
+        <a href="{{ url_for('add_service', client_id=client.id) }}" class="btn btn-green text-sm px-3 py-1.5">
+            + Agregar Trabajo
+        </a>
+    </div>
+    {% if client.services %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white table-auto border-collapse">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Fecha</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Descripción</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Precio</th>
+                    <th class="px-4 py-3 text-center text-sm font-medium text-gray-600 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for service in client.services | sort(attribute='date', reverse=true) %}
+                <tr class="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ service.date.strftime('%d/%m/%Y') }}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900">{{ service.description }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">${{ "%.2f" | format(service.price) }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-center">
+                        <a href="{{ url_for('edit_service', client_id=client.id, service_id=service.id) }}" class="inline-block bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out mr-2">
+                            Editar
+                        </a>
+                        <form action="{{ url_for('delete_service', client_id=client.id, service_id=service.id) }}" method="post" class="inline-block" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este trabajo/servicio?');">
+                            <button type="submit" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out">
+                                Eliminar
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600 text-base">No hay trabajos registrados para este cliente.</p>
+    {% endif %}
+</div>
+{% endblock %}

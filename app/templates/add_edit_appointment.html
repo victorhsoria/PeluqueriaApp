@@ -1,0 +1,29 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h1 class="text-4xl font-bold text-center mb-8 text-gray-800">{{ title }}</h1>
+
+<div class="max-w-xl mx-auto bg-white p-8 rounded-lg shadow-xl">
+    <form method="POST">
+        <div class="mb-5">
+            <label for="date_time" class="block text-gray-700 text-sm font-bold mb-2">Fecha y Hora:</label>
+            <input type="datetime-local" id="date_time" name="date_time" 
+                   value="{{ appointment.date_time.strftime('%Y-%m-%dT%H:%M') if appointment else '' }}" 
+                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" 
+                   required>
+        </div>
+        <div class="mb-6">
+            <label for="description" class="block text-gray-700 text-sm font-bold mb-2">Descripción del Turno:</label>
+            <textarea id="description" name="description" rows="3" 
+                      class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" 
+                      required>{{ appointment.description if appointment else '' }}</textarea>
+        </div>
+        <div class="flex items-center justify-between">
+            <button type="submit" class="btn bg-blue-600 hover:bg-blue-700">
+                {{ 'Actualizar Turno' if appointment else 'Agregar Turno' }}
+            </button>
+            <a href="{{ url_for('client_detail', client_id=client.id) }}" class="btn bg-gray-500 hover:bg-gray-600">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

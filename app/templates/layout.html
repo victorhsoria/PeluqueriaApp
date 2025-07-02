@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peluquería App - {{ title | default('Inicio') }}</title>
+    <!-- Incluir Tailwind CSS desde CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Gris claro de fondo */
+            color: #374151; /* Texto gris oscuro */
+        }
+        .flash-message {
+            padding: 0.75rem 1.25rem;
+            margin-bottom: 1rem;
+            border: 1px solid transparent;
+            border-radius: 0.25rem;
+            display: flex; /* Para alinear el texto y el botón de cierre */
+            justify-content: space-between; /* Espacio entre el texto y el botón */
+            align-items: center; /* Centrar verticalmente */
+        }
+        .flash-success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .flash-danger {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        /* Estilos para el botón de cierre */
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem; /* Tamaño más grande para la 'x' */
+            font-weight: bold;
+            line-height: 1;
+            cursor: pointer;
+            color: inherit; /* Hereda el color del texto del mensaje */
+            padding: 0 0.5rem;
+            opacity: 0.7;
+            transition: opacity 0.2s ease-in-out;
+        }
+        .close-btn:hover {
+            opacity: 1;
+        }
+
+        /* Estilos generales para formularios y tablas */
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        select,
+        textarea {
+            @apply shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline transition duration-150 ease-in-out;
+        }
+        button[type="submit"],
+        .btn {
+            @apply bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-200 ease-in-out;
+        }
+        .btn-green {
+            @apply bg-green-600 hover:bg-green-700;
+        }
+        .btn-red {
+            @apply bg-red-600 hover:bg-red-700;
+        }
+        .btn-gray {
+            @apply bg-gray-500 hover:bg-gray-600;
+        }
+        .table-auto th, .table-auto td {
+            @apply px-4 py-2 border border-gray-200;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <nav class="bg-gradient-to-r from-purple-600 to-blue-600 p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="{{ url_for('index') }}" class="text-white text-3xl font-extrabold tracking-tight">
+                Peluquería App
+            </a>
+            <div class="space-x-4">
+                <a href="{{ url_for('products') }}" class="text-white hover:text-blue-200 transition duration-200 ease-in-out text-lg font-medium">
+                    Productos
+                </a>
+                <a href="{{ url_for('orders') }}" class="text-white hover:text-blue-200 transition duration-200 ease-in-out text-lg font-medium">
+                    Pedidos
+                </a>
+                <a href="{{ url_for('clients') }}" class="text-white hover:text-blue-200 transition duration-200 ease-in-out text-lg font-medium">
+                    Clientes
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto mt-8 p-4 flex-grow">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <!-- Se agregó la clase 'flash-messages-container' para depuración -->
+                <div class="mb-4 flash-messages-container">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }} rounded-lg shadow-md" role="alert">
+                            <span>{{ message }}</span>
+                            <button type="button" class="close-btn" aria-label="Cerrar mensaje">&times;</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-gray-800 text-white p-6 mt-8">
+        <div class="container mx-auto text-center">
+            <p>&copy; {{ current_year }} Peluquería App. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Script de depuración para ver los mensajes flash en la consola del navegador
+            const flashMessagesContainer = document.querySelector('.flash-messages-container');
+            if (flashMessagesContainer) {
+                const messages = flashMessagesContainer.querySelectorAll('.flash-message');
+                if (messages.length > 0) {
+                    console.log("--- Mensajes Flasheados (Debugging) ---");
+                    messages.forEach(msg => {
+                        const category = msg.classList.contains('flash-success') ? 'SUCCESS' : 
+                                         (msg.classList.contains('flash-danger') ? 'DANGER' : 'INFO');
+                        console.log(`[${category}]: ${msg.querySelector('span').textContent.trim()}`); // Ajustado para obtener el texto del span
+                    });
+                    console.log("---------------------------------------");
+                }
+            }
+
+            // Lógica para cerrar los mensajes flash
+            const closeButtons = document.querySelectorAll('.flash-message .close-btn');
+            closeButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const messageDiv = this.closest('.flash-message');
+                    if (messageDiv) {
+                        messageDiv.remove();
+                    }
+                });
+            });
+        });
+    </script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

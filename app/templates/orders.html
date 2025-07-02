@@ -1,0 +1,75 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Gestión de Pedidos</h1>
+
+<div class="mb-6 text-right">
+    <a href="{{ url_for('add_order') }}" class="btn btn-green">
+        + Crear Nuevo Pedido
+    </a>
+</div>
+
+<!-- Buscador de Pedidos por Fecha -->
+<div class="bg-white p-6 rounded-lg shadow-xl mb-6">
+    <h2 class="text-2xl font-semibold mb-4 text-gray-800">Buscar Pedidos por Fecha</h2>
+    <form method="GET" action="{{ url_for('orders') }}" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div>
+            <label for="from_date" class="block text-gray-700 text-sm font-bold mb-2">Desde:</label>
+            <input type="date" id="from_date" name="from_date" 
+                   value="{{ from_date if from_date else '' }}"
+                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
+        </div>
+        <div>
+            <label for="to_date" class="block text-gray-700 text-sm font-bold mb-2">Hasta:</label>
+            <input type="date" id="to_date" name="to_date" 
+                   value="{{ to_date if to_date else '' }}"
+                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
+        </div>
+        <div class="flex space-x-2">
+            <button type="submit" class="btn bg-blue-600 hover:bg-blue-700 flex-grow">Buscar</button>
+            <a href="{{ url_for('orders') }}" class="btn bg-gray-500 hover:bg-gray-600 flex-grow">Limpiar</a>
+        </div>
+    </form>
+</div>
+
+<!-- Listado de Pedidos -->
+<div class="bg-white p-6 rounded-lg shadow-xl overflow-x-auto">
+    {% if orders %}
+    <table class="min-w-full bg-white table-auto border-collapse" id="ordersTable">
+        <thead class="bg-gray-100">
+            <tr>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider rounded-tl-lg">ID Pedido</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Fecha</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Productos</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider rounded-tr-lg">Total Pedido</th>
+                <th class="px-4 py-3 text-center text-sm font-medium text-gray-600 uppercase tracking-wider rounded-tr-lg">Acciones</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for order in orders %}
+            <tr class="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ order.id }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ order.order_date.strftime('%d/%m/%Y') }}</td>
+                <td class="px-4 py-3 text-sm text-gray-900">
+                    <ul class="list-disc list-inside">
+                        {% for item in order.items_list %}
+                        <li>{{ item.quantity }} x {{ item.brand }} - {{ item.description }} (${{ "%.2f" | format(item.wholesale_price_at_order) }})</li>
+                        {% endfor %}
+                    </ul>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-semibold text-purple-700">${{ "%.2f" | format(order.total_order_price) }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-center">
+                    <button onclick="exportOrderToPdf({{ order.id }}, '{{ order.order_date.strftime('%Y-%m-%d') }}')" 
+                            class="inline-block bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out">
+                        Exportar PDF
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-center text-gray-600 text-lg">No hay pedidos registrados para los filtros seleccionados.</p>
+    {% endif %}
+</div>
+{% endblock %}

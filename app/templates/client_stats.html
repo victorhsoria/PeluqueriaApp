@@ -1,0 +1,75 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Estadísticas de Clientes</h1>
+
+<div class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-xl mb-8 text-center">
+    <h2 class="text-3xl font-semibold text-gray-800 mb-4">Ingresos Totales por Servicios</h2>
+    <p class="text-5xl font-extrabold text-purple-700">${{ "%.2f" | format(total_revenue) }}</p>
+</div>
+
+<!-- Filtros por Mes y Año -->
+<div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-xl mb-8">
+    <h2 class="text-2xl font-semibold mb-4 text-gray-800">Filtrar por Período</h2>
+    <form method="GET" action="{{ url_for('client_stats') }}" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div>
+            <label for="month" class="block text-gray-700 text-sm font-bold mb-2">Mes:</label>
+            <select id="month" name="month"
+                    class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
+                <option value="">Todos los meses</option>
+                {% for month_num in available_months %}
+                    <option value="{{ month_num }}" {% if selected_month == month_num %}selected{% endif %}>
+                        {{ month_names[month_num] }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="year" class="block text-gray-700 text-sm font-bold mb-2">Año:</label>
+            <select id="year" name="year"
+                    class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
+                <option value="">Todos los años</option>
+                {% for year_num in available_years %}
+                    <option value="{{ year_num }}" {% if selected_year == year_num %}selected{% endif %}>
+                        {{ year_num }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex space-x-2">
+            <button type="submit" class="btn bg-blue-600 hover:bg-blue-700 flex-grow">Filtrar</button>
+            <a href="{{ url_for('client_stats') }}" class="btn bg-gray-500 hover:bg-gray-600 flex-grow">Limpiar Filtros</a>
+        </div>
+    </form>
+</div>
+
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl">
+    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Ingresos por Cliente</h2>
+    {% if revenue_by_client %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white table-auto border-collapse">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider rounded-tl-lg">Cliente</th>
+                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-600 uppercase tracking-wider rounded-tr-lg">Total Cobrado</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for client_name, client_last_name, total_price in revenue_by_client %}
+                <tr class="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ client_name }} {{ client_last_name }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-semibold">${{ "%.2f" | format(total_price) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600 text-base">No hay servicios registrados para calcular ingresos por cliente en el período seleccionado.</p>
+    {% endif %}
+</div>
+
+<div class="mt-8 text-center">
+    <a href="{{ url_for('clients') }}" class="btn bg-gray-500 hover:bg-gray-600">Volver a Clientes</a>
+</div>
+{% endblock %}

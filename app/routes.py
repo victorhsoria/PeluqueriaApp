@@ -1,8 +1,24 @@
 from flask import render_template, request, redirect, url_for, flash, jsonify
 from app import app, db
 from app.models import Product, Order, OrderItem, Client, Appointment, Service
-from datetime import datetime, date
-from sqlalchemy import func, extract # Importar func y extract para funciones de agregación y extracción de fecha
+from datetime import datetime, date, timedelta, timezone
+from sqlalchemy import func, extract
+import locale # Importar el módulo locale
+
+# Configurar la configuración regional a español para el formato de fechas
+# Esto es crucial para que strftime devuelva los nombres de días y meses en español.
+# 'es_ES.UTF-8' es común en sistemas Linux. En Windows, podría ser 'Spanish_Spain.1252' o 'es_ES'.
+# PythonAnywhere suele ser Linux, así que 'es_ES.UTF-8' debería funcionar.
+try:
+    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
+except locale.Error:
+    # Fallback para sistemas donde 'es_ES.UTF-8' no esté disponible
+    # Puedes probar otras opciones como 'es_ES' o 'Spanish_Spain.1252' si es necesario
+    print("Advertencia: No se pudo establecer la configuración regional 'es_ES.UTF-8'. Las fechas podrían no mostrarse en español.")
+    # Si estás en Windows y esto falla, intenta con:
+    # locale.setlocale(locale.LC_TIME, 'Spanish_Spain.1252')
+    pass
+
 
 @app.route('/')
 def index():
@@ -17,9 +33,37 @@ def index():
 def products():
     """
     Muestra la lista de productos y permite agregar/editar/eliminar.
+    También muestra los turnos del día actual.
     """
     products = Product.query.all()
-    return render_template('products.html', products=products)
+
+    # Obtener la fecha de hoy
+    today = date.today()
+    
+    # Formatear la fecha de hoy para mostrarla en la plantilla
+    # Ahora, gracias a locale.setlocale, strftime debería devolver el formato en español
+    today_formatted = today.strftime('%A, %d de %B')
+
+    # Consultar los turnos para hoy, ordenados por hora
+    today_appointments = Appointment.query.join(Client).filter(
+        func.date(Appointment.date_time) == today
+    ).order_by(Appointment.date_time).all()
+
+    # Formatear los turnos para la visualización en la plantilla
+    formatted_today_appointments = []
+    for appt in today_appointments:
+        formatted_today_appointments.append({
+            'time': appt.date_time.strftime('%H:%M'),
+            'client_name': f"{appt.client.first_name} {appt.client.last_name}",
+            'description': appt.description,
+            'client_id': appt.client.id,
+            'appointment_id': appt.id
+        })
+
+    return render_template('products.html', 
+                           products=products,
+                           today_appointments=formatted_today_appointments,
+                           today_formatted_date=today_formatted) # Pasar la fecha formateada
 
 @app.route('/products/add', methods=['GET', 'POST'])
 def add_product():
@@ -506,4 +550,45 @@ def client_stats():
                            selected_month=selected_month,
                            month_names=month_names,
                            title='Estadísticas de Clientes')
+
+# --- Rutas de Calendario y API de Turnos ---
+
+@app.route('/appointments/calendar')
+def appointments_calendar():
+    """
+    Muestra el calendario de turnos.
+    """
+    return render_template('appointments_calendar.html', title='Calendario de Turnos')
+
+@app.route('/api/appointments')
+def api_appointments():
+    """
+    API endpoint para obtener todos los turnos.
+    Retorna una lista de diccionarios con los detalles de cada turno.
+    """
+    # Usamos with_entities para seleccionar explícitamente las columnas que necesitamos,
+    # incluyendo el ID del cliente y la descripción del turno.
+    appointments = db.session.query(
+        Appointment.id,
+        Appointment.date_time,
+        Appointment.description, # Incluir la descripción del turno
+        Client.id,               # Incluir el ID del cliente
+        Client.first_name,
+        Client.last_name
+    ).join(Client).order_by(Appointment.date_time).all()
+
+    appointments_data = []
+    # Asegurarse de desempaquetar todos los valores de la tupla de la consulta
+    for appt_id, date_time, description, client_id, client_first_name, client_last_name in appointments:
+        appointments_data.append({
+            'id': appt_id,
+            'title': f"{client_first_name} {client_last_name}: {description}",
+            'start': date_time.isoformat(), # Formato ISO para JavaScript
+            'date': date_time.strftime('%Y-%m-%d'), # Solo la fecha para fácil filtrado
+            'time': date_time.strftime('%H:%M'), # Solo la hora
+            'client_id': client_id, # Usar el ID del cliente correcto
+            'client_name': f"{client_first_name} {client_last_name}",
+            'description': description # Añadir la descripción del turno para uso directo
+        })
+    return jsonify(appointments_data)
 

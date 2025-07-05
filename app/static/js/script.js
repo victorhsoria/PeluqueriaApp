@@ -1,8 +1,11 @@
 // Variable global para almacenar los productos del dropdown
 let availableProducts = [];
 
+// Variables globales para el calendario
+let currentCalendarDate = new Date(); // Fecha actual para el calendario
+let allAppointments = []; // Almacena todos los turnos obtenidos de la API
+
 /**
- * Fetches products from the API to populate the dropdown.
  * Fetches products from the API to populate the dropdown.
  * @returns {Promise<void>} A promise that resolves when products are fetched and stored.
  */
@@ -305,13 +308,202 @@ function displayMessage(message, category) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `flash-message flash-${category} rounded-lg shadow-md mb-4`;
     messageDiv.setAttribute('role', 'alert');
-    messageDiv.textContent = message;
+    messageDiv.innerHTML = `
+        <span>${message}</span>
+        <button type="button" class="close-btn" aria-label="Cerrar mensaje">&times;</button>
+    `;
 
     // Insert at the beginning of the main content area
     mainContainer.prepend(messageDiv);
+
+    // Lógica para cerrar el mensaje (si el botón existe)
+    const closeButton = messageDiv.querySelector('.close-btn');
+    if (closeButton) {
+        closeButton.addEventListener('click', function() {
+            messageDiv.remove();
+        });
+    }
 
     // Automatically remove message after a few seconds
     setTimeout(() => {
         messageDiv.remove();
     }, 5000); // 5 seconds
 }
+
+
+// --- Funciones del Calendario (NUEVAS) ---
+
+/**
+ * Fetches all appointments from the API.
+ * @returns {Promise<Array>} A promise that resolves with an array of appointment objects.
+ */
+async function fetchAppointments() {
+    try {
+        console.log("Fetching appointments from API...");
+        const response = await fetch('/api/appointments');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        allAppointments = await response.json();
+        console.log("Turnos cargados:", allAppointments);
+        return allAppointments;
+    } catch (error) {
+        console.error("Error al cargar turnos:", error);
+        displayMessage('Error al cargar turnos para el calendario. Por favor, recarga la página.', 'danger');
+        return [];
+    }
+}
+
+/**
+ * Renders the calendar grid for the current month.
+ * @param {Date} date - The date object representing the current month to display.
+ */
+function renderCalendar(date) {
+    const calendarGrid = document.querySelector('.calendar-grid');
+    const currentMonthYear = document.getElementById('currentMonthYear');
+    const today = new Date(); // Fecha actual para marcar "hoy"
+
+    // Limpiar días anteriores del calendario
+    calendarGrid.innerHTML = ''; 
+
+    const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    currentMonthYear.textContent = `${monthNames[month]} ${year}`;
+
+    // Obtener el primer día del mes
+    const firstDayOfMonth = new Date(year, month, 1);
+    // Calcular el día de la semana del primer día (0=Domingo, 1=Lunes, ..., 6=Sábado)
+    // Ajustar para que Lunes sea 0 y Domingo sea 6
+    const startDayOfWeek = (firstDayOfMonth.getDay() === 0) ? 6 : firstDayOfMonth.getDay() - 1;
+
+    // Calcular el número de días del mes anterior a mostrar para completar la primera semana
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    for (let i = 0; i < startDayOfWeek; i++) {
+        const dayDiv = document.createElement('div');
+        dayDiv.classList.add('calendar-day', 'inactive');
+        dayDiv.innerHTML = `<div class="calendar-day-number">${prevMonthLastDay - startDayOfWeek + 1 + i}</div>`;
+        calendarGrid.appendChild(dayDiv);
+    }
+
+    // Rellenar los días del mes actual
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    for (let day = 1; day <= lastDayOfMonth; day++) {
+        const dayDiv = document.createElement('div');
+        dayDiv.classList.add('calendar-day');
+        dayDiv.innerHTML = `<div class="calendar-day-number">${day}</div>`;
+
+        const currentDay = new Date(year, month, day);
+        // Comparar solo la fecha (año, mes, día) para marcar "hoy"
+        if (currentDay.getFullYear() === today.getFullYear() &&
+            currentDay.getMonth() === today.getMonth() &&
+            currentDay.getDate() === today.getDate()) {
+            dayDiv.classList.add('today');
+        }
+
+        // Añadir eventos al día
+        const dayString = currentDay.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        const appointmentsForDay = allAppointments.filter(appt => appt.date === dayString);
+
+        appointmentsForDay.forEach(appt => {
+            const eventDiv = document.createElement('div');
+            eventDiv.classList.add('calendar-event');
+            eventDiv.textContent = `${appt.time} - ${appt.client_name}: ${appt.description}`;
+            eventDiv.title = appt.title; // Título completo en tooltip
+            eventDiv.dataset.appointmentId = appt.id; // Guardar ID para posible edición
+            eventDiv.dataset.clientId = appt.client_id; // Guardar ID del cliente
+            eventDiv.addEventListener('click', () => {
+                // Redirigir a la página de edición del turno
+                window.location.href = `/clients/${appt.client_id}/appointments/edit/${appt.id}`;
+            });
+            dayDiv.appendChild(eventDiv);
+        });
+        
+        calendarGrid.appendChild(dayDiv);
+    }
+
+    // Rellenar los días del mes siguiente para completar la última semana
+    const totalDaysDisplayed = calendarGrid.children.length; // Días del mes anterior + días del mes actual
+    const remainingCells = 42 - totalDaysDisplayed; // Asegurar 6 semanas completas (6*7=42 días)
+    for (let i = 1; i <= remainingCells; i++) {
+        const dayDiv = document.createElement('div');
+        dayDiv.classList.add('calendar-day', 'inactive');
+        dayDiv.innerHTML = `<div class="calendar-day-number">${i}</div>`;
+        calendarGrid.appendChild(dayDiv);
+    }
+}
+
+/**
+ * Displays today's appointments in the dedicated list.
+ */
+function displayTodayAppointments() {
+    const todayAppointmentsList = document.getElementById('todayAppointmentsList');
+    const noAppointmentsMessage = document.getElementById('noAppointmentsMessage');
+    const todayDateSpan = document.getElementById('todayDate');
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+
+    todayAppointmentsList.innerHTML = ''; // Limpiar lista anterior
+
+    const appointmentsForToday = allAppointments.filter(appt => appt.date === todayString);
+
+    if (appointmentsForToday.length > 0) {
+        appointmentsForToday.sort((a, b) => a.time.localeCompare(b.time)); // Ordenar por hora
+        appointmentsForToday.forEach(appt => {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+                <span class="font-semibold text-gray-800">${appt.time}</span> - 
+                <a href="/clients/${appt.client_id}/appointments/edit/${appt.id}" class="text-blue-600 hover:underline">
+                    ${appt.client_name}: ${appt.description}
+                </a>
+            `;
+            todayAppointmentsList.appendChild(listItem);
+        });
+        noAppointmentsMessage.classList.add('hidden');
+    } else {
+        noAppointmentsMessage.classList.remove('hidden');
+    }
+
+    todayDateSpan.textContent = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+
+// --- Event Listeners y Inicialización ---
+
+document.addEventListener('DOMContentLoaded', async function() {
+    // Lógica para el calendario solo si estamos en la página del calendario
+    if (document.getElementById('currentMonthYear')) {
+        console.log("Initializing calendar page...");
+        await fetchAppointments(); // Cargar todos los turnos al inicio
+        renderCalendar(currentCalendarDate); // Renderizar el calendario inicial
+        displayTodayAppointments(); // Mostrar turnos de hoy
+
+        document.getElementById('prevMonth').addEventListener('click', () => {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+            renderCalendar(currentCalendarDate);
+        });
+
+        document.getElementById('nextMonth').addEventListener('click', () => {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+            renderCalendar(currentCalendarDate);
+        });
+    }
+
+    // Lógica para la página de agregar pedido (ya existente)
+    // Solo si el elemento 'order_date' existe (para evitar errores en otras páginas)
+    if (document.getElementById('order_date')) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        document.getElementById('order_date').value = `${year}-${month}-${day}`;
+        
+        // Carga los productos para el dropdown y espera a que terminen
+        await fetchProductsForDropdown(); 
+        
+        // Añade un item de pedido por defecto SOLO DESPUÉS de que los productos estén cargados
+        addItemToOrder();
+    }
+});

@@ -1,0 +1,73 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Calendario de Turnos</h1>
+
+<div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+    <!-- Sección del Calendario -->
+    <div class="md:col-span-2 bg-white p-6 rounded-lg shadow-xl">
+        <div class="flex justify-between items-center mb-6">
+            <button id="prevMonth" class="btn bg-gray-200 text-gray-800 hover:bg-gray-300 py-2 px-4 rounded-full font-bold transition duration-150 ease-in-out">&lt;</button>
+            <h2 id="currentMonthYear" class="text-2xl font-semibold text-gray-800"></h2>
+            <button id="nextMonth" class="btn bg-gray-200 text-gray-800 hover:bg-gray-300 py-2 px-4 rounded-full font-bold transition duration-150 ease-in-out">&gt;</button>
+        </div>
+
+        <div class="calendar-header grid grid-cols-7 gap-1 mb-2 text-center font-bold text-gray-700">
+            <div>Lun</div>
+            <div>Mar</div>
+            <div>Mié</div>
+            <div>Jue</div>
+            <div>Vie</div>
+            <div>Sáb</div>
+            <div>Dom</div>
+        </div>
+
+        <div class="calendar-grid grid grid-cols-7 gap-1">
+            <!-- Los días del calendario se generarán con JavaScript aquí -->
+        </div>
+    </div>
+
+    <!-- Sección de Turnos del Día -->
+    <div class="md:col-span-1 bg-white p-6 rounded-lg shadow-xl">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Turnos para Hoy (<span id="todayDate"></span>)</h2>
+        <ul id="todayAppointmentsList" class="today-appointments-list divide-y divide-gray-200">
+            <!-- Los turnos de hoy se cargarán aquí con JavaScript -->
+            <li class="text-gray-600">Cargando turnos...</li>
+        </ul>
+        <p id="noAppointmentsMessage" class="text-center text-gray-600 mt-4 hidden">No hay turnos para hoy.</p>
+    </div>
+</div>
+
+<!-- Modal para Agregar Turno -->
+<div id="addAppointmentModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
+    <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md mx-4">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Agregar Nuevo Turno</h2>
+            <button id="closeModalBtn" class="text-gray-500 hover:text-gray-700 text-3xl leading-none">&times;</button>
+        </div>
+        <form id="addAppointmentForm" action="{{ url_for('add_appointment') }}" method="POST">
+            <div class="mb-4">
+                <label for="modal_client_id" class="block text-gray-700 text-sm font-bold mb-2">Cliente:</label>
+                <select id="modal_client_id" name="client_id" required
+                        class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
+                    <!-- Opciones de clientes se cargarán con JavaScript -->
+                </select>
+            </div>
+            <div class="mb-4">
+                <label for="modal_date_time" class="block text-gray-700 text-sm font-bold mb-2">Fecha y Hora:</label>
+                <input type="datetime-local" id="modal_date_time" name="date_time" required
+                       class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
+            </div>
+            <div class="mb-6">
+                <label for="modal_description" class="block text-gray-700 text-sm font-bold mb-2">Descripción:</label>
+                <input type="text" id="modal_description" name="description" required
+                       class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
+            </div>
+            <div class="flex justify-end">
+                <button type="submit" class="btn btn-green">Guardar Turno</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

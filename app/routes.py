@@ -3,20 +3,13 @@ from app import app, db
 from app.models import Product, Order, OrderItem, Client, Appointment, Service
 from datetime import datetime, date, timedelta, timezone
 from sqlalchemy import func, extract
-import locale # Importar el módulo locale
+import locale
 
 # Configurar la configuración regional a español para el formato de fechas
-# Esto es crucial para que strftime devuelva los nombres de días y meses en español.
-# 'es_ES.UTF-8' es común en sistemas Linux. En Windows, podría ser 'Spanish_Spain.1252' o 'es_ES'.
-# PythonAnywhere suele ser Linux, así que 'es_ES.UTF-8' debería funcionar.
 try:
     locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 except locale.Error:
-    # Fallback para sistemas donde 'es_ES.UTF-8' no esté disponible
-    # Puedes probar otras opciones como 'es_ES' o 'Spanish_Spain.1252' si es necesario
     print("Advertencia: No se pudo establecer la configuración regional 'es_ES.UTF-8'. Las fechas podrían no mostrarse en español.")
-    # Si estás en Windows y esto falla, intenta con:
-    # locale.setlocale(locale.LC_TIME, 'Spanish_Spain.1252')
     pass
 
 
@@ -41,7 +34,6 @@ def products():
     today = date.today()
     
     # Formatear la fecha de hoy para mostrarla en la plantilla
-    # Ahora, gracias a locale.setlocale, strftime debería devolver el formato en español
     today_formatted = today.strftime('%A, %d de %B')
 
     # Consultar los turnos para hoy, ordenados por hora
@@ -63,7 +55,7 @@ def products():
     return render_template('products.html', 
                            products=products,
                            today_appointments=formatted_today_appointments,
-                           today_formatted_date=today_formatted) # Pasar la fecha formateada
+                           today_formatted_date=today_formatted)
 
 @app.route('/products/add', methods=['GET', 'POST'])
 def add_product():
@@ -275,6 +267,15 @@ def product_details_api(product_id):
         })
     return jsonify({'error': 'Producto no encontrado'}), 404
 
+@app.route('/api/clients_list')
+def clients_list_api():
+    """
+    API endpoint para obtener la lista de clientes (ID, nombre, apellido) para el dropdown.
+    """
+    clients = Client.query.with_entities(Client.id, Client.first_name, Client.last_name).order_by(Client.first_name).all()
+    return jsonify([{'id': c.id, 'name': f"{c.first_name} {c.last_name}"} for c in clients])
+
+
 # --- Rutas de Gestión de Clientes ---
 
 @app.route('/clients')
@@ -354,31 +355,74 @@ def client_detail(client_id):
 
 # --- Rutas de Gestión de Turnos (Appointments) ---
 
+# Modificado para aceptar prefill_date y prefill_time
 @app.route('/clients/<int:client_id>/appointments/add', methods=['GET', 'POST'])
-def add_appointment(client_id):
+@app.route('/appointments/add', methods=['GET', 'POST']) # Nueva ruta para agregar desde el calendario
+def add_appointment():
     """
-    Permite agregar un nuevo turno para un cliente.
+    Permite agregar un nuevo turno.
+    Puede recibir client_id, prefill_date y prefill_time como parámetros de URL.
     """
-    client = Client.query.get_or_404(client_id)
+    client_id = request.args.get('client_id', type=int) # Obtener client_id de args si viene del calendario
+    prefill_date = request.args.get('date')
+    prefill_time = request.args.get('time')
+
+    client = None
+    if client_id:
+        client = Client.query.get_or_404(client_id)
+
     if request.method == 'POST':
+        # Si el turno se agrega desde el formulario del calendario, el client_id vendrá en el form data
+        form_client_id = request.form.get('client_id', type=int)
+        if form_client_id:
+            client = Client.query.get_or_404(form_client_id)
+        
+        if not client:
+            flash('Cliente no seleccionado para el turno.', 'danger')
+            # Si no hay cliente, redirigir a la página de clientes o mostrar error
+            clients_for_dropdown = Client.query.order_by(Client.first_name).all()
+            return render_template('add_edit_appointment.html', 
+                                   client=None, 
+                                   appointment=None, 
+                                   title='Agregar Turno',
+                                   clients_for_dropdown=clients_for_dropdown,
+                                   prefill_date=prefill_date,
+                                   prefill_time=prefill_time)
+
+
         date_time_str = request.form['date_time']
         description = request.form['description']
         try:
-            # Combina la fecha y hora para crear un objeto datetime
             date_time_obj = datetime.strptime(date_time_str, '%Y-%m-%dT%H:%M')
             
             new_appointment = Appointment(client_id=client.id, date_time=date_time_obj, description=description)
             db.session.add(new_appointment)
             db.session.commit()
             flash('Turno agregado exitosamente!', 'success')
-            return redirect(url_for('client_detail', client_id=client.id))
+            # Redirigir al detalle del cliente si se agregó desde allí, o al calendario si se agregó desde el calendario
+            if request.referrer and 'calendar' in request.referrer:
+                return redirect(url_for('appointments_calendar'))
+            elif client:
+                return redirect(url_for('client_detail', client_id=client.id))
+            else:
+                return redirect(url_for('appointments_calendar')) # Fallback
         except ValueError:
             flash('Formato de fecha y/o hora inválido. Usa AAAA-MM-DDTHH:MM.', 'danger')
             db.session.rollback()
         except Exception as e:
             flash(f'Error al agregar turno: {e}', 'danger')
             db.session.rollback()
-    return render_template('add_edit_appointment.html', client=client, appointment=None, title=f'Agregar Turno para {client.first_name}')
+    
+    # Para GET requests
+    clients_for_dropdown = Client.query.order_by(Client.first_name).all()
+    return render_template('add_edit_appointment.html', 
+                           client=client, 
+                           appointment=None, 
+                           title='Agregar Turno',
+                           clients_for_dropdown=clients_for_dropdown,
+                           prefill_date=prefill_date,
+                           prefill_time=prefill_time)
+
 
 @app.route('/clients/<int:client_id>/appointments/edit/<int:appointment_id>', methods=['GET', 'POST'])
 def edit_appointment(client_id, appointment_id):
@@ -566,29 +610,26 @@ def api_appointments():
     API endpoint para obtener todos los turnos.
     Retorna una lista de diccionarios con los detalles de cada turno.
     """
-    # Usamos with_entities para seleccionar explícitamente las columnas que necesitamos,
-    # incluyendo el ID del cliente y la descripción del turno.
     appointments = db.session.query(
         Appointment.id,
         Appointment.date_time,
-        Appointment.description, # Incluir la descripción del turno
-        Client.id,               # Incluir el ID del cliente
+        Appointment.description,
+        Client.id,
         Client.first_name,
         Client.last_name
     ).join(Client).order_by(Appointment.date_time).all()
 
     appointments_data = []
-    # Asegurarse de desempaquetar todos los valores de la tupla de la consulta
     for appt_id, date_time, description, client_id, client_first_name, client_last_name in appointments:
         appointments_data.append({
             'id': appt_id,
             'title': f"{client_first_name} {client_last_name}: {description}",
-            'start': date_time.isoformat(), # Formato ISO para JavaScript
-            'date': date_time.strftime('%Y-%m-%d'), # Solo la fecha para fácil filtrado
-            'time': date_time.strftime('%H:%M'), # Solo la hora
-            'client_id': client_id, # Usar el ID del cliente correcto
+            'start': date_time.isoformat(),
+            'date': date_time.strftime('%Y-%m-%d'),
+            'time': date_time.strftime('%H:%M'),
+            'client_id': client_id,
             'client_name': f"{client_first_name} {client_last_name}",
-            'description': description # Añadir la descripción del turno para uso directo
+            'description': description
         })
     return jsonify(appointments_data)
 

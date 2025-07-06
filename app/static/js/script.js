@@ -4,6 +4,7 @@ let availableProducts = [];
 // Variables globales para el calendario
 let currentCalendarDate = new Date(); // Fecha actual para el calendario
 let allAppointments = []; // Almacena todos los turnos obtenidos de la API
+let allClients = []; // Almacena todos los clientes obtenidos de la API
 
 /**
  * Fetches products from the API to populate the dropdown.
@@ -19,7 +20,6 @@ async function fetchProductsForDropdown() {
         console.log("Productos cargados:", availableProducts);
     } catch (error) {
         console.error("Error al cargar productos para el dropdown:", error);
-        // Optionally display an error message to the user
         displayMessage('Error al cargar productos. Por favor, recarga la página.', 'danger');
     }
 }
@@ -355,6 +355,25 @@ async function fetchAppointments() {
 }
 
 /**
+ * Fetches all clients from the API for the dropdown.
+ * @returns {Promise<void>} A promise that resolves when clients are fetched and stored.
+ */
+async function fetchClientsForDropdown() {
+    try {
+        console.log("Fetching clients for dropdown...");
+        const response = await fetch('/api/clients_list');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        allClients = await response.json();
+        console.log("Clientes cargados:", allClients);
+    } catch (error) {
+        console.error("Error al cargar clientes para el dropdown:", error);
+        displayMessage('Error al cargar clientes. Por favor, recarga la página.', 'danger');
+    }
+}
+
+/**
  * Renders the calendar grid for the current month.
  * @param {Date} date - The date object representing the current month to display.
  */
@@ -403,6 +422,13 @@ function renderCalendar(date) {
             dayDiv.classList.add('today');
         }
 
+        // Añadir evento de click para abrir la modal de agregar turno
+        dayDiv.addEventListener('click', () => {
+            const selectedDate = new Date(year, month, day);
+            const formattedDate = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+            openAddAppointmentModal(formattedDate);
+        });
+
         // Añadir eventos al día
         const dayString = currentDay.toISOString().split('T')[0]; // Formato YYYY-MM-DD
         const appointmentsForDay = allAppointments.filter(appt => appt.date === dayString);
@@ -414,7 +440,8 @@ function renderCalendar(date) {
             eventDiv.title = appt.title; // Título completo en tooltip
             eventDiv.dataset.appointmentId = appt.id; // Guardar ID para posible edición
             eventDiv.dataset.clientId = appt.client_id; // Guardar ID del cliente
-            eventDiv.addEventListener('click', () => {
+            eventDiv.addEventListener('click', (e) => {
+                e.stopPropagation(); // Evitar que el clic en el evento abra la modal del día
                 // Redirigir a la página de edición del turno
                 window.location.href = `/clients/${appt.client_id}/appointments/edit/${appt.id}`;
             });
@@ -469,6 +496,40 @@ function displayTodayAppointments() {
     todayDateSpan.textContent = today.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
+/**
+ * Opens the add appointment modal and pre-fills the date.
+ * @param {string} dateString - The date in YYYY-MM-DD format to pre-fill.
+ */
+async function openAddAppointmentModal(dateString) {
+    const modal = document.getElementById('addAppointmentModal');
+    const dateTimeInput = document.getElementById('modal_date_time');
+    const clientSelect = document.getElementById('modal_client_id');
+
+    // Pre-fill date (and default time to 09:00)
+    dateTimeInput.value = `${dateString}T09:00`;
+
+    // Populate client dropdown
+    await fetchClientsForDropdown(); // Asegurarse de que los clientes estén cargados
+    clientSelect.innerHTML = '<option value="">-- Seleccionar Cliente --</option>'; // Limpiar y añadir opción por defecto
+    allClients.forEach(client => {
+        const option = document.createElement('option');
+        option.value = client.id;
+        option.textContent = client.name;
+        clientSelect.appendChild(option);
+    });
+
+    modal.classList.remove('hidden'); // Show the modal
+}
+
+/**
+ * Closes the add appointment modal.
+ */
+function closeAddAppointmentModal() {
+    const modal = document.getElementById('addAppointmentModal');
+    modal.classList.add('hidden'); // Hide the modal
+    document.getElementById('addAppointmentForm').reset(); // Reset the form
+}
+
 
 // --- Event Listeners y Inicialización ---
 
@@ -480,6 +541,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         renderCalendar(currentCalendarDate); // Renderizar el calendario inicial
         displayTodayAppointments(); // Mostrar turnos de hoy
 
+        // Event listeners para los botones de navegación del calendario
         document.getElementById('prevMonth').addEventListener('click', () => {
             currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
             renderCalendar(currentCalendarDate);
@@ -489,6 +551,46 @@ document.addEventListener('DOMContentLoaded', async function() {
             currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
             renderCalendar(currentCalendarDate);
         });
+
+        // Event listener para el botón de cerrar la modal
+        document.getElementById('closeModalBtn').addEventListener('click', closeAddAppointmentModal);
+
+        // Event listener para el envío del formulario de la modal
+        const addAppointmentForm = document.getElementById('addAppointmentForm');
+        addAppointmentForm.addEventListener('submit', async function(event) {
+            event.preventDefault(); // Evitar el envío por defecto del formulario
+
+            const formData = new FormData(addAppointmentForm);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch(addAppointmentForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded' // Flask espera este tipo de contenido
+                    },
+                    body: new URLSearchParams(data).toString()
+                });
+
+                if (response.ok) {
+                    const result = await response.text(); // Leer como texto, ya que Flask redirige
+                    displayMessage('Turno agregado exitosamente!', 'success');
+                    closeAddAppointmentModal();
+                    // Recargar turnos y calendario después de agregar uno nuevo
+                    await fetchAppointments();
+                    renderCalendar(currentCalendarDate);
+                    displayTodayAppointments();
+                } else {
+                    const errorText = await response.text();
+                    displayMessage(`Error al agregar turno: ${errorText}`, 'danger');
+                    console.error('Error adding appointment:', errorText);
+                }
+            } catch (error) {
+                console.error('Error en la solicitud de agregar turno:', error);
+                displayMessage(`Error en la solicitud: ${error.message}`, 'danger');
+            }
+        });
+
     }
 
     // Lógica para la página de agregar pedido (ya existente)

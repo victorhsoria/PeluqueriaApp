@@ -308,21 +308,10 @@ function displayMessage(message, category) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `flash-message flash-${category} rounded-lg shadow-md mb-4`;
     messageDiv.setAttribute('role', 'alert');
-    messageDiv.innerHTML = `
-        <span>${message}</span>
-        <button type="button" class="close-btn" aria-label="Cerrar mensaje">&times;</button>
-    `;
+    messageDiv.textContent = message;
 
     // Insert at the beginning of the main content area
     mainContainer.prepend(messageDiv);
-
-    // Lógica para cerrar el mensaje (si el botón existe)
-    const closeButton = messageDiv.querySelector('.close-btn');
-    if (closeButton) {
-        closeButton.addEventListener('click', function() {
-            messageDiv.remove();
-        });
-    }
 
     // Automatically remove message after a few seconds
     setTimeout(() => {
@@ -425,19 +414,20 @@ function renderCalendar(date) {
         // Añadir evento de click para abrir la modal de agregar turno
         dayDiv.addEventListener('click', () => {
             const selectedDate = new Date(year, month, day);
-            const formattedDate = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+            const formattedDate = selectedDate.toISOString().split('T')[0]; //-MM-DD
             openAddAppointmentModal(formattedDate);
         });
 
         // Añadir eventos al día
-        const dayString = currentDay.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        const dayString = currentDay.toISOString().split('T')[0]; // Formato-MM-DD
         const appointmentsForDay = allAppointments.filter(appt => appt.date === dayString);
 
         appointmentsForDay.forEach(appt => {
             const eventDiv = document.createElement('div');
             eventDiv.classList.add('calendar-event');
-            eventDiv.textContent = `${appt.time} - ${appt.client_name}: ${appt.description}`;
-            eventDiv.title = appt.title; // Título completo en tooltip
+            // Modificado: Muestra el nombre del cliente en negrita y la descripción
+            eventDiv.innerHTML = `<strong>${appt.client_name}</strong> - ${appt.description}`;
+            eventDiv.title = `${appt.client_name}: ${appt.description} (${appt.time})`; // Título completo en tooltip
             eventDiv.dataset.appointmentId = appt.id; // Guardar ID para posible edición
             eventDiv.dataset.clientId = appt.client_id; // Guardar ID del cliente
             eventDiv.addEventListener('click', (e) => {
@@ -470,7 +460,7 @@ function displayTodayAppointments() {
     const noAppointmentsMessage = document.getElementById('noAppointmentsMessage');
     const todayDateSpan = document.getElementById('todayDate');
     const today = new Date();
-    const todayString = today.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    const todayString = today.toISOString().split('T')[0]; // Formato-MM-DD
 
     todayAppointmentsList.innerHTML = ''; // Limpiar lista anterior
 
@@ -498,7 +488,7 @@ function displayTodayAppointments() {
 
 /**
  * Opens the add appointment modal and pre-fills the date.
- * @param {string} dateString - The date in YYYY-MM-DD format to pre-fill.
+ * @param {string} dateString - The date in-MM-DD format to pre-fill.
  */
 async function openAddAppointmentModal(dateString) {
     const modal = document.getElementById('addAppointmentModal');

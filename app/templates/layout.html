@@ -32,6 +32,11 @@
             background-color: #f8d7da;
             border-color: #f5c6cb;
         }
+        .flash-info { /* Nuevo estilo para mensajes de información */
+            color: #0c5460;
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+        }
         /* Estilos para el botón de cierre */
         .close-btn {
             background: none;
@@ -73,6 +78,77 @@
         .table-auto th, .table-auto td {
             @apply px-4 py-2 border border-gray-200;
         }
+        /* Estilos para el calendario */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background-color: #e5e7eb; /* Gris claro para las líneas de la cuadrícula */
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            overflow: hidden; /* Para que los bordes redondeados se vean bien */
+        }
+        .calendar-header div, .calendar-day {
+            background-color: #ffffff;
+            padding: 0.4rem; /* Ajustado para dar más espacio vertical */
+            text-align: center;
+            font-weight: 500;
+            color: #4b5563;
+        }
+        .calendar-header div {
+            background-color: #f3f4f6;
+            font-weight: bold;
+            padding: 1rem 0.75rem;
+        }
+        .calendar-day {
+            min-height: 95px; /* Increased height for more space */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start; /* Alinear el contenido a la izquierda */
+            justify-content: flex-start; /* Alinear el contenido arriba */
+        }
+        .calendar-day.inactive {
+            background-color: #f9fafb;
+            color: #d1d5db;
+        }
+        .calendar-day.today {
+            background-color: #e0f2fe; /* Azul claro para hoy */
+            border: 2px solid #3b82f6; /* Borde azul para hoy */
+            position: relative;
+            z-index: 1;
+        }
+        .calendar-day-number {
+            font-size: 1.1rem; /* Ligeramente más pequeño para ahorrar espacio */
+            font-weight: bold;
+            margin-bottom: 0.2rem; /* Margen reducido */
+            color: #1f2937;
+            align-self: center; /* Centrar el número del día */
+        }
+        .calendar-event {
+            background-color: #bfdbfe; /* Azul más oscuro para eventos */
+            color: #1e40af;
+            font-size: 0.75rem; /* Aumentado ligeramente el tamaño de fuente */
+            line-height: 1.25; /* Ajustado para mejor legibilidad con salto de línea */
+            padding: 0.15rem 0.3rem; /* Padding ajustado */
+            border-radius: 0.25rem;
+            margin-top: 0.1rem; /* Margen reducido entre eventos */
+            overflow: hidden;
+            cursor: pointer;
+            text-align: left;
+            word-wrap: break-word; /* Permite que palabras largas se rompan */
+            max-height: 4.5em; /* Permite hasta 3-4 líneas (1.25 * 3.5 = 4.375) */
+            width: 100%; /* El evento ocupa todo el ancho de la celda */
+        }
+        .calendar-event:hover {
+            background-color: #93c5fd;
+        }
+        .today-appointments-list li {
+            padding: 0.5rem 0;
+            border-bottom: 1px dashed #e5e7eb;
+        }
+        .today-appointments-list li:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -90,6 +166,9 @@
                 </a>
                 <a href="{{ url_for('clients') }}" class="text-white hover:text-blue-200 transition duration-200 ease-in-out text-lg font-medium">
                     Clientes
+                </a>
+                <a href="{{ url_for('appointments_calendar') }}" class="text-white hover:text-blue-200 transition duration-200 ease-in-out text-lg font-medium">
+                    Calendario
                 </a>
             </div>
         </div>
@@ -129,7 +208,8 @@
                     console.log("--- Mensajes Flasheados (Debugging) ---");
                     messages.forEach(msg => {
                         const category = msg.classList.contains('flash-success') ? 'SUCCESS' : 
-                                         (msg.classList.contains('flash-danger') ? 'DANGER' : 'INFO');
+                                         (msg.classList.contains('flash-danger') ? 'DANGER' : 
+                                         (msg.classList.contains('flash-info') ? 'INFO' : 'UNKNOWN')); // Añadido 'flash-info'
                         console.log(`[${category}]: ${msg.querySelector('span').textContent.trim()}`); // Ajustado para obtener el texto del span
                     });
                     console.log("---------------------------------------");

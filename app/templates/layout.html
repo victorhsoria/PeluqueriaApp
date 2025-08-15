@@ -101,11 +101,12 @@
             padding: 1rem 0.75rem;
         }
         .calendar-day {
-            min-height: 95px; /* Increased height for more space */
+            min-height: 105px; /* Increased height for more space, aiming for Google Calendar look */
             display: flex;
             flex-direction: column;
             align-items: flex-start; /* Alinear el contenido a la izquierda */
             justify-content: flex-start; /* Alinear el contenido arriba */
+            position: relative; /* Para posicionar elementos internos si es necesario */
         }
         .calendar-day.inactive {
             background-color: #f9fafb;
@@ -122,13 +123,16 @@
             font-weight: bold;
             margin-bottom: 0.2rem; /* Margen reducido */
             color: #1f2937;
-            align-self: center; /* Centrar el número del día */
+            align-self: flex-end; /* Alinear el número del día a la derecha superior */
+            position: absolute;
+            top: 0.4rem;
+            right: 0.4rem;
         }
         .calendar-event {
             background-color: #bfdbfe; /* Azul más oscuro para eventos */
             color: #1e40af;
-            font-size: 0.75rem; /* Aumentado ligeramente el tamaño de fuente */
-            line-height: 1.25; /* Ajustado para mejor legibilidad con salto de línea */
+            font-size: 0.7rem; /* Aumentado ligeramente el tamaño de fuente */
+            line-height: 1.2; /* Ajustado para mejor legibilidad con salto de línea */
             padding: 0.15rem 0.3rem; /* Padding ajustado */
             border-radius: 0.25rem;
             margin-top: 0.1rem; /* Margen reducido entre eventos */
@@ -136,8 +140,9 @@
             cursor: pointer;
             text-align: left;
             word-wrap: break-word; /* Permite que palabras largas se rompan */
-            max-height: 4.5em; /* Permite hasta 3-4 líneas (1.25 * 3.5 = 4.375) */
+            max-height: 3.6em; /* Permite hasta 3 líneas (1.2 * 3) */
             width: 100%; /* El evento ocupa todo el ancho de la celda */
+            box-sizing: border-box; /* Incluir padding y border en el ancho/alto */
         }
         .calendar-event:hover {
             background-color: #93c5fd;
@@ -169,6 +174,9 @@
                 </a>
                 <a href="{{ url_for('appointments_calendar') }}" class="text-white hover:text-blue-200 transition duration-200 ease-in-out text-lg font-medium">
                     Calendario
+                </a>
+                <a href="{{ url_for('reports') }}" class="text-white hover:text-blue-200 transition duration-200 ease-in-out text-lg font-medium">
+                    Reportes
                 </a>
             </div>
         </div>

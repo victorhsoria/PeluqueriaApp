@@ -53,11 +53,11 @@
                 <td class="px-4 py-3 text-sm text-gray-900">
                     <ul class="list-disc list-inside">
                         {% for item in order.items_list %}
-                        <li>{{ item.quantity }} x {{ item.brand }} - {{ item.description }} (${{ "%.2f" | format(item.wholesale_price_at_order) }})</li>
+                        <li>{{ item.quantity }} x {{ item.brand }} - {{ item.description }} ({{ item.wholesale_price_at_order | currency }})</li>
                         {% endfor %}
                     </ul>
                 </td>
-                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-semibold text-purple-700">${{ "%.2f" | format(order.total_order_price) }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-semibold text-purple-700">{{ order.total_order_price | currency }}</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-center">
                     <button onclick="exportOrderToPdf({{ order.id }}, '{{ order.order_date.strftime('%Y-%m-%d') }}')" 
                             class="inline-block bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out">

@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800">Reporte de Ganancias</h1>
+    </div>
+
+    <!-- Filtros -->
+    <div class="bg-white p-4 rounded-lg shadow-md mb-6">
+        <form method="get" action="{{ url_for('reports') }}" class="flex items-center space-x-4">
+            <div>
+                <label for="year" class="block text-sm font-medium text-gray-700">Año:</label>
+                <select name="year" id="year" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    {% for year in available_years %}
+                        <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="month" class="block text-sm font-medium text-gray-700">Mes:</label>
+                <select name="month" id="month" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    {% for num, name in month_names.items() %}
+                        <option value="{{ num }}" {% if num == selected_month %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="pt-5">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Resumen de Ganancias -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-green-100 p-6 rounded-lg shadow-md text-center">
+            <h2 class="text-xl font-semibold text-green-800">Ingresos por Servicios</h2>
+            <p class="text-4xl font-bold text-green-900 mt-2">{{ total_revenue | currency }}</p>
+        </div>
+        <div class="bg-red-100 p-6 rounded-lg shadow-md text-center">
+            <h2 class="text-xl font-semibold text-red-800">Costo de Pedidos</h2>
+            <p class="text-4xl font-bold text-red-900 mt-2">{{ total_cost | currency }}</p>
+        </div>
+        <div class="bg-blue-100 p-6 rounded-lg shadow-md text-center">
+            <h2 class="text-xl font-semibold text-blue-800">Ganancia Neta</h2>
+            <p class="text-4xl font-bold text-blue-900 mt-2">{{ net_profit | currency }}</p>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

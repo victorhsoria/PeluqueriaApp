@@ -414,12 +414,12 @@ function renderCalendar(date) {
         // Añadir evento de click para abrir la modal de agregar turno
         dayDiv.addEventListener('click', () => {
             const selectedDate = new Date(year, month, day);
-            const formattedDate = selectedDate.toISOString().split('T')[0]; //-MM-DD
+            const formattedDate = selectedDate.toISOString().split('T')[0]; // Formato YYYY-MM-DD
             openAddAppointmentModal(formattedDate);
         });
 
         // Añadir eventos al día
-        const dayString = currentDay.toISOString().split('T')[0]; // Formato-MM-DD
+        const dayString = currentDay.toISOString().split('T')[0]; // Formato YYYY-MM-DD
         const appointmentsForDay = allAppointments.filter(appt => appt.date === dayString);
 
         appointmentsForDay.forEach(appt => {
@@ -427,7 +427,8 @@ function renderCalendar(date) {
             eventDiv.classList.add('calendar-event');
             // Modificado: Muestra el nombre del cliente en negrita y la descripción
             eventDiv.innerHTML = `<strong>${appt.client_name}</strong> - ${appt.description}`;
-            eventDiv.title = `${appt.client_name}: ${appt.description} (${appt.time})`; // Título completo en tooltip
+            // Modificado: El título del tooltip ahora incluye la hora
+            eventDiv.title = `${appt.client_name}: ${appt.description} (${appt.time})`;
             eventDiv.dataset.appointmentId = appt.id; // Guardar ID para posible edición
             eventDiv.dataset.clientId = appt.client_id; // Guardar ID del cliente
             eventDiv.addEventListener('click', (e) => {
@@ -460,7 +461,7 @@ function displayTodayAppointments() {
     const noAppointmentsMessage = document.getElementById('noAppointmentsMessage');
     const todayDateSpan = document.getElementById('todayDate');
     const today = new Date();
-    const todayString = today.toISOString().split('T')[0]; // Formato-MM-DD
+    const todayString = today.toISOString().split('T')[0]; // Formato YYYY-MM-DD
 
     todayAppointmentsList.innerHTML = ''; // Limpiar lista anterior
 
@@ -488,7 +489,7 @@ function displayTodayAppointments() {
 
 /**
  * Opens the add appointment modal and pre-fills the date.
- * @param {string} dateString - The date in-MM-DD format to pre-fill.
+ * @param {string} dateString - The date in YYYY-MM-DD format to pre-fill.
  */
 async function openAddAppointmentModal(dateString) {
     const modal = document.getElementById('addAppointmentModal');

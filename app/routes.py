@@ -5,13 +5,6 @@ from datetime import datetime, date, timedelta, timezone
 from sqlalchemy import func, extract
 import locale
 
-# Configurar la configuración regional a español para el formato de fechas
-try:
-    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
-except locale.Error:
-    print("Advertencia: No se pudo establecer la configuración regional 'es_ES.UTF-8'. Las fechas podrían no mostrarse en español.")
-    pass
-
 
 @app.route('/')
 def index():
@@ -298,7 +291,7 @@ def add_client():
         phone = request.form.get('phone')
 
         new_client = Client(first_name=first_name, last_name=last_name,
-                            address=address, phone=phone)
+                             address=address, phone=phone)
         try:
             db.session.add(new_client)
             db.session.commit()
@@ -358,21 +351,30 @@ def client_detail(client_id):
 # Modificado para aceptar prefill_date y prefill_time
 @app.route('/clients/<int:client_id>/appointments/add', methods=['GET', 'POST'])
 @app.route('/appointments/add', methods=['GET', 'POST']) # Nueva ruta para agregar desde el calendario
-def add_appointment():
+def add_appointment(client_id=None): # <--- CORRECCIÓN CLAVE AQUÍ: client_id es un argumento opcional
     """
     Permite agregar un nuevo turno.
-    Puede recibir client_id, prefill_date y prefill_time como parámetros de URL.
+    Puede recibir client_id, prefill_date y prefill_time como parámetros de URL o como parte de la ruta.
     """
-    client_id = request.args.get('client_id', type=int) # Obtener client_id de args si viene del calendario
+    # Si client_id viene de la URL (ruta /clients/<int:client_id>/appointments/add)
+    # y no es None (cuando viene de /appointments/add), usarlo.
+    # Si viene del request.args (cuando se llama desde el calendario con un parámetro de consulta),
+    # prevalece o se usa si el de la URL es None.
+    
+    # Prioridad: 1. Argumento de la URL (si existe), 2. Parámetro de consulta 'client_id'
+    if client_id is None: # Si no vino en la ruta, intenta buscarlo en los parámetros de consulta
+        client_id = request.args.get('client_id', type=int)
+
     prefill_date = request.args.get('date')
     prefill_time = request.args.get('time')
 
     client = None
-    if client_id:
+    if client_id: # Ahora, si client_id tiene un valor (ya sea de la URL o del query param)
         client = Client.query.get_or_404(client_id)
 
     if request.method == 'POST':
-        # Si el turno se agrega desde el formulario del calendario, el client_id vendrá en el form data
+        # Si el turno se agrega desde el formulario del calendario, el client_id podría venir en el form data
+        # O si el campo de selección de cliente permite elegir otro cliente, su ID también vendrá aquí.
         form_client_id = request.form.get('client_id', type=int)
         if form_client_id:
             client = Client.query.get_or_404(form_client_id)
@@ -416,7 +418,7 @@ def add_appointment():
     # Para GET requests
     clients_for_dropdown = Client.query.order_by(Client.first_name).all()
     return render_template('add_edit_appointment.html', 
-                           client=client, 
+                           client=client, # Pasa el objeto client al template si existe
                            appointment=None, 
                            title='Agregar Turno',
                            clients_for_dropdown=clients_for_dropdown,
@@ -633,3 +635,55 @@ def api_appointments():
         })
     return jsonify(appointments_data)
 
+# --- Ruta para Reportes ---
+@app.route('/reports')
+def reports():
+    """
+    Muestra un reporte de ganancias y costos, con filtros por mes y año.
+    """
+    selected_month = request.args.get('month', type=int, default=datetime.utcnow().month)
+    selected_year = request.args.get('year', type=int, default=datetime.utcnow().year)
+
+    # --- Calcular Ingresos (de Servicios) ---
+    services_query = Service.query
+    if selected_year:
+        services_query = services_query.filter(extract('year', Service.date) == selected_year)
+    if selected_month:
+        services_query = services_query.filter(extract('month', Service.date) == selected_month)
+    
+    total_revenue = services_query.with_entities(func.sum(Service.price)).scalar() or 0.0
+
+    # --- Calcular Costos (de Pedidos) ---
+    orders_query = Order.query
+    if selected_year:
+        orders_query = orders_query.filter(extract('year', Order.order_date) == selected_year)
+    if selected_month:
+        orders_query = orders_query.filter(extract('month', Order.order_date) == selected_month)
+
+    total_cost = orders_query.with_entities(func.sum(Order.total_order_price)).scalar() or 0.0
+
+    # --- Calcular Ganancia ---
+    net_profit = total_revenue - total_cost
+
+    # --- Datos para los filtros ---
+    available_years_services = db.session.query(extract('year', Service.date)).distinct()
+    available_years_orders = db.session.query(extract('year', Order.order_date)).distinct()
+    
+    all_years_query = available_years_services.union(available_years_orders)
+    available_years = [y[0] for y in all_years_query.all() if y[0] is not None]
+    available_years.sort(reverse=True)
+
+    month_names = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
+        7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+
+    return render_template('reports.html',
+                           title='Reporte de Ganancias',
+                           total_revenue=total_revenue,
+                           total_cost=total_cost,
+                           net_profit=net_profit,
+                           available_years=available_years,
+                           month_names=month_names,
+                           selected_year=selected_year,
+                           selected_month=selected_month)

@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 import os
+import locale
 
 # Inicializa la aplicación Flask
 app = Flask(__name__)
@@ -16,6 +17,27 @@ app.config['SECRET_KEY'] = 'una_clave_secreta_super_segura_y_aleatoria_para_tu_a
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'peluqueria.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Configurar la configuración regional a español para el formato de fechas y moneda
+# Configurar la configuración regional a español de Argentina para el formato de fechas y moneda
+try:
+    locale.setlocale(locale.LC_ALL, 'es_AR.UTF-8')
+except locale.Error:
+    try:
+        locale.setlocale(locale.LC_ALL, 'es_AR')
+    except locale.Error:
+        print("Advertencia: No se pudo establecer la configuración regional en español de Argentina. Las fechas y monedas podrían no mostrarse correctamente.")
+        pass
+
+# --- Filtro Jinja para formato de moneda ---
+def format_currency(value):
+    """Filtro para formatear un número como moneda en formato español."""
+    if value is None:
+        return locale.currency(0.0, symbol=True, grouping=True)
+    return locale.currency(value, symbol=True, grouping=True)
+
+# Registrar el filtro en el entorno de Jinja2
+app.jinja_env.filters['currency'] = format_currency
 
 # Inicializa la extensión SQLAlchemy
 db = SQLAlchemy(app)

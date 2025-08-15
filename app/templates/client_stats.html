@@ -5,7 +5,7 @@
 
 <div class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-xl mb-8 text-center">
     <h2 class="text-3xl font-semibold text-gray-800 mb-4">Ingresos Totales por Servicios</h2>
-    <p class="text-5xl font-extrabold text-purple-700">${{ "%.2f" | format(total_revenue) }}</p>
+    <p class="text-5xl font-extrabold text-purple-700">{{ total_revenue | currency }}</p>
 </div>
 
 <!-- Filtros por Mes y Año -->
@@ -58,7 +58,7 @@
                 {% for client_name, client_last_name, total_price in revenue_by_client %}
                 <tr class="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ client_name }} {{ client_last_name }}</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-semibold">${{ "%.2f" | format(total_price) }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-semibold">{{ total_price | currency }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

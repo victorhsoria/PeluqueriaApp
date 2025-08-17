@@ -43,7 +43,8 @@
                 <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Descripción</th>
                 <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Precio Mayorista</th>
                 <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Venta (%)</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider rounded-tr-lg">Precio de Venta</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Precio de Venta</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Stock</th>
                 <th class="px-4 py-3 text-center text-sm font-medium text-gray-600 uppercase tracking-wider rounded-tr-lg">Acciones</th>
             </tr>
         </thead>
@@ -56,6 +57,7 @@
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ product.wholesale_price | currency }}</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ product.sale_percentage }}%</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-semibold text-green-700">{{ product.total_sale_price | currency }}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ product.stock }}</td>
                 <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-center">
                     <a href="{{ url_for('edit_product', product_id=product.id) }}" class="inline-block bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out mr-2">
                         Editar

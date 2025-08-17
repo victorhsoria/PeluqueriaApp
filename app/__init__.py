@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 import os
 import locale
 
@@ -18,7 +19,6 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'peluqueria.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Configurar la configuración regional a español para el formato de fechas y moneda
 # Configurar la configuración regional a español de Argentina para el formato de fechas y moneda
 try:
     locale.setlocale(locale.LC_ALL, 'es_AR.UTF-8')
@@ -41,10 +41,8 @@ app.jinja_env.filters['currency'] = format_currency
 
 # Inicializa la extensión SQLAlchemy
 db = SQLAlchemy(app)
+# Inicializa Flask-Migrate
+migrate = Migrate(app, db)
 
 # Importa las rutas para que la aplicación las conozca
 from app import routes, models
-
-# Asegúrate de que los modelos se carguen antes de crear la base de datos
-with app.app_context():
-    db.create_all()

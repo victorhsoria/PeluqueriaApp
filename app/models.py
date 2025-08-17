@@ -1,6 +1,17 @@
 from app import db
 from datetime import datetime, UTC # Importa UTC aquí
 
+# Tabla de asociación para la relación muchos a muchos entre Servicio y Producto
+class UsedProduct(db.Model):
+    __tablename__ = 'used_product'
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), primary_key=True)
+    quantity = db.Column(db.Integer, nullable=False, default=1) # Cantidad del producto usado
+
+    # Relaciones para acceder a los objetos Service y Product desde UsedProduct
+    product = db.relationship("Product", back_populates="service_associations")
+    service = db.relationship("Service", back_populates="product_associations")
+
 class Product(db.Model):
     """
     Modelo para los productos de inventario.
@@ -11,9 +22,12 @@ class Product(db.Model):
     wholesale_price = db.Column(db.Float, nullable=False) # Precio mayorista por unidad
     sale_percentage = db.Column(db.Float, nullable=False) # Porcentaje de venta (ej: 20 para 20%)
     total_sale_price = db.Column(db.Float, nullable=False) # Precio total de venta (calculado)
+    stock = db.Column(db.Integer, default=0, nullable=False) # Stock disponible del producto
 
     # Relación uno a muchos con OrderItem (un producto puede estar en muchos items de pedido)
     order_items = db.relationship('OrderItem', backref='product', lazy=True)
+    # Relación para la asociación con servicios
+    service_associations = db.relationship('UsedProduct', back_populates='product')
 
     def __repr__(self):
         return f"<Product {self.description} ({self.brand})>"
@@ -91,6 +105,9 @@ class Service(db.Model):
     date = db.Column(db.Date, nullable=False, default=lambda: datetime.now(UTC).date()) # Fecha en que se realizó el servicio
     description = db.Column(db.String(255), nullable=False) # Descripción del trabajo (ej: "Corte de caballero", "Mechas")
     price = db.Column(db.Float, nullable=False) # Precio del servicio
+
+    # Relación para la asociación con productos
+    product_associations = db.relationship('UsedProduct', back_populates='service', cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Service {self.description} for {self.client.first_name} on {self.date}>"

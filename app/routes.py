@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, flash, jsonify
 from app import app, db
-from app.models import Product, Order, OrderItem, Client, Appointment, Service
+from app.models import Product, Order, OrderItem, Client, Appointment, Service, UsedProduct
 from datetime import datetime, date, timedelta, timezone
 from sqlalchemy import func, extract
 import locale
@@ -167,9 +167,9 @@ def orders():
 @app.route('/orders/add', methods=['GET', 'POST'])
 def add_order():
     """
-    Permite agregar un nuevo pedido.
+    Permite agregar un nuevo pedido y actualiza el stock de productos.
     """
-    products_for_dropdown = Product.query.all() # Para el select de productos
+    products_for_dropdown = Product.query.all()
 
     if request.method == 'POST':
         order_date_str = request.form['order_date']
@@ -179,10 +179,9 @@ def add_order():
             flash('Formato de fecha inválido. Por favor, usa AAAA-MM-DD.', 'danger')
             return render_template('add_order.html', products=products_for_dropdown)
 
-        # Crear el nuevo pedido
-        new_order = Order(order_date=order_date, total_order_price=0.0) # El total se actualizará
+        new_order = Order(order_date=order_date, total_order_price=0.0)
         db.session.add(new_order)
-        db.session.flush() # Obtener el ID del pedido antes de commitear
+        db.session.flush()
 
         item_product_ids = request.form.getlist('product_id[]')
         item_brands = request.form.getlist('item_brand[]')
@@ -192,18 +191,14 @@ def add_order():
 
         total_order_price = 0.0
         
-        # Procesar cada item del pedido
-        for i in range(len(item_brands)):
-            try:
-                # Si el product_id es "0" significa que se ingresó manualmente o no se seleccionó un producto existente
+        try:
+            for i in range(len(item_brands)):
                 product_id_val = int(item_product_ids[i]) if item_product_ids[i] and item_product_ids[i] != '0' else None
                 wholesale_price_at_order = float(item_wholesale_prices[i])
                 quantity = int(item_quantities[i])
 
                 if quantity <= 0:
-                    flash(f'La cantidad para el producto "{item_descriptions[i]}" debe ser mayor que cero.', 'danger')
-                    db.session.rollback()
-                    return render_template('add_order.html', products=products_for_dropdown)
+                    raise ValueError(f'La cantidad para el producto "{item_descriptions[i]}" debe ser mayor que cero.')
 
                 item_total = wholesale_price_at_order * quantity
                 total_order_price += item_total
@@ -217,19 +212,26 @@ def add_order():
                     quantity=quantity
                 )
                 db.session.add(new_order_item)
-            except ValueError:
-                flash('Valores inválidos para precio o cantidad en los items del pedido.', 'danger')
-                db.session.rollback()
-                return render_template('add_order.html', products=products_for_dropdown)
-            except Exception as e:
-                flash(f'Error al procesar item de pedido: {e}', 'danger')
-                db.session.rollback()
-                return render_template('add_order.html', products=products_for_dropdown)
-        
-        new_order.total_order_price = total_order_price
-        db.session.commit()
-        flash('Pedido agregado exitosamente!', 'success')
-        return redirect(url_for('orders'))
+
+                # Incrementar el stock del producto si existe
+                if product_id_val:
+                    product = Product.query.get(product_id_val)
+                    if product:
+                        product.stock += quantity
+            
+            new_order.total_order_price = total_order_price
+            db.session.commit()
+            flash('Pedido agregado y stock actualizado exitosamente!', 'success')
+            return redirect(url_for('orders'))
+
+        except ValueError as e:
+            db.session.rollback()
+            flash(str(e), 'danger')
+            return render_template('add_order.html', products=products_for_dropdown)
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al procesar el pedido: {e}', 'danger')
+            return render_template('add_order.html', products=products_for_dropdown)
 
     return render_template('add_order.html', products=products_for_dropdown)
 
@@ -241,10 +243,10 @@ def products_list_api():
     """
     API endpoint para obtener la lista de productos (ID y descripción) para el dropdown.
     """
-    # Se modificó para incluir 'brand' y 'wholesale_price' en la selección de entidades
-    products = Product.query.with_entities(Product.id, Product.description, Product.brand, Product.wholesale_price).all()
+    # Se modificó para incluir 'brand', 'wholesale_price' y 'stock'
+    products = Product.query.with_entities(Product.id, Product.description, Product.brand, Product.wholesale_price, Product.stock).all()
     # Retorna una lista de diccionarios, útil para JavaScript
-    return jsonify([{'id': p.id, 'description': p.description, 'brand': p.brand, 'wholesale_price': p.wholesale_price} for p in products])
+    return jsonify([{'id': p.id, 'description': p.description, 'brand': p.brand, 'wholesale_price': p.wholesale_price, 'stock': p.stock} for p in products])
 
 @app.route('/api/product_details/<int:product_id>')
 def product_details_api(product_id):
@@ -476,55 +478,125 @@ def delete_appointment(client_id, appointment_id):
 @app.route('/clients/<int:client_id>/services/add', methods=['GET', 'POST'])
 def add_service(client_id):
     """
-    Permite agregar un nuevo trabajo/servicio realizado para un cliente.
+    Permite agregar un nuevo trabajo/servicio y descuenta los productos usados del stock.
     """
     client = Client.query.get_or_404(client_id)
+
     if request.method == 'POST':
         date_str = request.form['date']
         description = request.form['description']
+        product_ids = request.form.getlist('product_ids')
+        quantities_used = request.form.getlist('quantities_used')
+
         try:
             price = float(request.form['price'])
             date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
             
             new_service = Service(client_id=client.id, date=date_obj, description=description, price=price)
+            
+            # Procesar productos y stock
+            for i, product_id in enumerate(product_ids):
+                if not product_id or not quantities_used[i]:
+                    continue
+                
+                product = Product.query.get(int(product_id))
+                quantity = int(quantities_used[i])
+
+                if not product or quantity <= 0:
+                    raise ValueError("Producto o cantidad inválida.")
+
+                if product.stock < quantity:
+                    raise ValueError(f'No hay stock suficiente para "{product.description}". Stock actual: {product.stock}')
+
+                # Descontar stock
+                product.stock -= quantity
+
+                # Crear la asociación
+                used_product = UsedProduct(quantity=quantity)
+                used_product.product = product
+                new_service.product_associations.append(used_product)
+
             db.session.add(new_service)
             db.session.commit()
-            flash('Trabajo/Servicio agregado exitosamente!', 'success')
+            flash('Trabajo/Servicio agregado y stock actualizado exitosamente!', 'success')
             return redirect(url_for('client_detail', client_id=client.id))
-        except ValueError:
-            flash('Formato de fecha o precio inválido. Usa AAAA-MM-DD para la fecha y un número para el precio.', 'danger')
+
+        except ValueError as e:
             db.session.rollback()
+            flash(str(e), 'danger')
         except Exception as e:
-            flash(f'Error al agregar trabajo/servicio: {e}', 'danger')
             db.session.rollback()
-    return render_template('add_edit_service.html', client=client, service=None, title=f'Agregar Trabajo para {client.first_name}')
+            flash(f'Error al agregar trabajo/servicio: {e}', 'danger')
+            
+    return render_template('add_edit_service.html', 
+                           client=client, 
+                           service=None, 
+                           title=f'Agregar Trabajo para {client.first_name}')
 
 @app.route('/clients/<int:client_id>/services/edit/<int:service_id>', methods=['GET', 'POST'])
 def edit_service(client_id, service_id):
     """
-    Permite editar un trabajo/servicio existente de un cliente.
+    Permite editar un trabajo/servicio existente y actualiza el stock de productos.
     """
     client = Client.query.get_or_404(client_id)
     service = Service.query.get_or_404(service_id)
-    if service.client_id != client_id: # Asegurar que el servicio pertenece a este cliente
+
+    if service.client_id != client_id:
         flash('Trabajo/Servicio no encontrado para este cliente.', 'danger')
         return redirect(url_for('client_detail', client_id=client.id))
 
     if request.method == 'POST':
-        service.date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
-        service.description = request.form['description']
         try:
+            # Revertir el stock de los productos anteriormente asociados
+            for assoc in service.product_associations:
+                assoc.product.stock += assoc.quantity
+            
+            # Limpiar las asociaciones viejas
+            service.product_associations.clear()
+
+            # Actualizar datos del servicio
+            service.date = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+            service.description = request.form['description']
             service.price = float(request.form['price'])
+
+            # Procesar nuevos productos y stock
+            product_ids = request.form.getlist('product_ids')
+            quantities_used = request.form.getlist('quantities_used')
+
+            for i, product_id in enumerate(product_ids):
+                if not product_id or not quantities_used[i]:
+                    continue
+                
+                product = Product.query.get(int(product_id))
+                quantity = int(quantities_used[i])
+
+                if not product or quantity <= 0:
+                    raise ValueError("Producto o cantidad inválida.")
+
+                if product.stock < quantity:
+                    raise ValueError(f'No hay stock suficiente para "{product.description}". Stock actual: {product.stock}')
+
+                product.stock -= quantity
+                
+                used_product = UsedProduct(quantity=quantity)
+                used_product.product = product
+                service.product_associations.append(used_product)
+
             db.session.commit()
-            flash('Trabajo/Servicio actualizado exitosamente!', 'success')
+            flash('Trabajo/Servicio actualizado y stock corregido exitosamente!', 'success')
             return redirect(url_for('client_detail', client_id=client.id))
-        except ValueError:
-            flash('Formato de fecha o precio inválido. Usa AAAA-MM-DD para la fecha y un número para el precio.', 'danger')
+
+        except ValueError as e:
             db.session.rollback()
+            flash(str(e), 'danger')
         except Exception as e:
-            flash(f'Error al actualizar trabajo/servicio: {e}', 'danger')
             db.session.rollback()
-    return render_template('add_edit_service.html', client=client, service=service, title=f'Editar Trabajo para {client.first_name}')
+            flash(f'Error al actualizar trabajo/servicio: {e}', 'danger')
+
+    return render_template('add_edit_service.html', 
+                           client=client, 
+                           service=service, 
+                           title=f'Editar Trabajo para {client.first_name}')
 
 @app.route('/clients/<int:client_id>/services/delete/<int:service_id>', methods=['POST'])
 def delete_service(client_id, service_id):

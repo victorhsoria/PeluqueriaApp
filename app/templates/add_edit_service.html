@@ -25,6 +25,18 @@
                    class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" 
                    required min="0">
         </div>
+
+        <!-- Productos Utilizados -->
+        <div class="mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Productos Utilizados</h3>
+            <div id="used-products-container">
+                <!-- Filas de productos se agregarán aquí dinámicamente -->
+            </div>
+            <button type="button" id="add-product-btn" class="btn bg-gray-600 hover:bg-gray-700 mt-2 text-sm">
+                + Agregar Producto
+            </button>
+        </div>
+
         <div class="flex items-center justify-between">
             <button type="submit" class="btn bg-blue-600 hover:bg-blue-700">
                 {{ 'Actualizar Trabajo' if service else 'Agregar Trabajo' }}
@@ -33,4 +45,74 @@
         </div>
     </form>
 </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addProductBtn = document.getElementById('add-product-btn');
+    const container = document.getElementById('used-products-container');
+    let allProducts = []; // This will store all available products from the API
+
+    // For edit mode, get the existing used products from the service object
+    // The 'tojson' filter is safe here because these are simple association objects
+    const existingAssociations = {{ service.product_associations | tojson if service else '[]' }};
+
+    // Function to create a new product row in the form
+    function createProductRow(association = null) {
+        const productRow = document.createElement('div');
+        productRow.classList.add('flex', 'items-center', 'space-x-2', 'mb-2');
+
+        const selectEl = document.createElement('select');
+        selectEl.name = 'product_ids';
+        selectEl.classList.add('shadow-sm', 'appearance-none', 'border', 'rounded', 'w-full', 'py-2', 'px-3', 'text-gray-700', 'leading-tight', 'focus:outline-none', 'focus:shadow-outline');
+        
+        let options = '<option value="">Seleccione un producto</option>';
+        allProducts.forEach(p => {
+            // In edit mode, if an association is passed, mark the correct product as selected
+            const isSelected = association && p.id === association.product_id;
+            options += `<option value="${p.id}" ${isSelected ? 'selected' : ''}>${p.brand} - ${p.description} (Stock: ${p.stock})</option>`;
+        });
+        selectEl.innerHTML = options;
+
+        const quantityInput = document.createElement('input');
+        quantityInput.type = 'number';
+        quantityInput.name = 'quantities_used';
+        quantityInput.placeholder = 'Cantidad';
+        quantityInput.min = '1';
+        quantityInput.required = true;
+        quantityInput.value = association ? association.quantity : ''; // Pre-fill quantity in edit mode
+        quantityInput.classList.add('shadow-sm', 'appearance-none', 'border', 'rounded', 'w-1/4', 'py-2', 'px-3', 'text-gray-700', 'leading-tight', 'focus:outline-none', 'focus:shadow-outline');
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = 'Eliminar';
+        removeBtn.classList.add('btn', 'bg-red-600', 'hover:bg-red-700', 'text-sm');
+        removeBtn.onclick = () => productRow.remove();
+
+        productRow.appendChild(selectEl);
+        productRow.appendChild(quantityInput);
+        productRow.appendChild(removeBtn);
+        container.appendChild(productRow);
+    }
+
+    // Fetch products from the API, then render the form state
+    fetch('{{ url_for("products_list_api") }}')
+        .then(response => response.json())
+        .then(data => {
+            allProducts = data;
+            // If in edit mode, render the already associated products
+            if (existingAssociations.length > 0) {
+                existingAssociations.forEach(assoc => {
+                    createProductRow(assoc);
+                });
+            }
+        })
+        .catch(error => console.error('Error al cargar los productos:', error));
+
+    // Event listener for the "Add Product" button
+    addProductBtn.addEventListener('click', () => createProductRow());
+});
+</script>
 {% endblock %}

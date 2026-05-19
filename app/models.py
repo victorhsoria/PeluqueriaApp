@@ -76,6 +76,32 @@ class Client(db.Model):
     last_name = db.Column(db.String(100), nullable=False) # Apellido del cliente
     address = db.Column(db.String(255), nullable=True) # Dirección del cliente
     phone = db.Column(db.String(20), nullable=True) # Número de celular del cliente
+    evaluation_hair_types = db.Column(db.Text, nullable=True)
+    evaluation_textures = db.Column(db.Text, nullable=True)
+    evaluation_scalp_conditions = db.Column(db.Text, nullable=True)
+    evaluation_scalp_properties = db.Column(db.Text, nullable=True)
+    evaluation_hair_loss = db.Column(db.Boolean, nullable=False, default=False)
+    evaluation_dandruff = db.Column(db.Boolean, nullable=False, default=False)
+    evaluation_formula_has_1 = db.Column(db.String(20), nullable=True)
+    evaluation_formula_has_2 = db.Column(db.String(20), nullable=True)
+    evaluation_formula_has_3 = db.Column(db.String(20), nullable=True)
+    evaluation_formula_has_4 = db.Column(db.String(20), nullable=True)
+    evaluation_formula_has_5 = db.Column(db.String(20), nullable=True)
+    evaluation_formula_wants_1 = db.Column(db.String(20), nullable=True)
+    evaluation_formula_wants_2 = db.Column(db.String(20), nullable=True)
+    evaluation_formula_wants_3 = db.Column(db.String(20), nullable=True)
+    evaluation_formula_wants_4 = db.Column(db.String(20), nullable=True)
+    evaluation_formula_wants_5 = db.Column(db.String(20), nullable=True)
+    evaluation_allergy_has = db.Column(db.Boolean, nullable=False, default=False)
+    evaluation_allergy_detail = db.Column(db.String(255), nullable=True)
+    evaluation_natural_tone = db.Column(db.String(100), nullable=True)
+    evaluation_artificial_tone = db.Column(db.String(100), nullable=True)
+    evaluation_gray_percentage = db.Column(db.String(50), nullable=True)
+    evaluation_growth = db.Column(db.String(100), nullable=True)
+    evaluation_desired_tone = db.Column(db.String(100), nullable=True)
+    evaluation_product_to_use = db.Column(db.String(255), nullable=True)
+    evaluation_application_exposure = db.Column(db.Text, nullable=True)
+    evaluation_notes = db.Column(db.Text, nullable=True)
 
     # Relaciones con Turnos y Servicios
     appointments = db.relationship('Appointment', backref='client', lazy=True, cascade="all, delete-orphan")

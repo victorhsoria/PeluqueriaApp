@@ -3,31 +3,181 @@
 {% block content %}
 <h1 class="text-4xl font-bold text-center mb-8 text-gray-800">{{ title }}</h1>
 
-<div class="max-w-xl mx-auto bg-white p-8 rounded-lg shadow-xl">
+{% set selected_hair_types = selected_values(client.evaluation_hair_types) if client else [] %}
+{% set selected_textures = selected_values(client.evaluation_textures) if client else [] %}
+{% set selected_scalp_conditions = selected_values(client.evaluation_scalp_conditions) if client else [] %}
+{% set selected_scalp_properties = selected_values(client.evaluation_scalp_properties) if client else [] %}
+
+<div class="max-w-5xl mx-auto bg-white p-8 rounded-lg shadow-xl">
     <form method="POST">
-        <div class="mb-5">
-            <label for="first_name" class="block text-gray-700 text-sm font-bold mb-2">Nombre:</label>
-            <input type="text" id="first_name" name="first_name" value="{{ client.first_name if client else '' }}" 
-                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" 
-                   required>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+                <label for="first_name" class="block text-gray-700 text-sm font-bold mb-2">Nombre:</label>
+                <input type="text" id="first_name" name="first_name" value="{{ client.first_name if client else '' }}"
+                       class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                       required>
+            </div>
+            <div>
+                <label for="last_name" class="block text-gray-700 text-sm font-bold mb-2">Apellido:</label>
+                <input type="text" id="last_name" name="last_name" value="{{ client.last_name if client else '' }}"
+                       class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                       required>
+            </div>
+            <div>
+                <label for="address" class="block text-gray-700 text-sm font-bold mb-2">Direccion (Opcional):</label>
+                <input type="text" id="address" name="address" value="{{ client.address if client else '' }}"
+                       class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
+            </div>
+            <div>
+                <label for="phone" class="block text-gray-700 text-sm font-bold mb-2">Celular (Opcional):</label>
+                <input type="text" id="phone" name="phone" value="{{ client.phone if client else '' }}"
+                       class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
+            </div>
         </div>
-        <div class="mb-5">
-            <label for="last_name" class="block text-gray-700 text-sm font-bold mb-2">Apellido:</label>
-            <input type="text" id="last_name" name="last_name" value="{{ client.last_name if client else '' }}" 
-                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" 
-                   required>
+
+        <div class="border-t border-gray-200 mt-8 pt-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-5">Evaluacion del cliente</h2>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="space-y-5">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tipo de cabello</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {% for option in evaluation_options.hair_types %}
+                            <label class="evaluation-check">
+                                <input type="checkbox" name="evaluation_hair_types" value="{{ option }}" {% if option in selected_hair_types %}checked{% endif %}>
+                                <span>{{ option }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Textura</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {% for option in evaluation_options.textures %}
+                            <label class="evaluation-check">
+                                <input type="checkbox" name="evaluation_textures" value="{{ option }}" {% if option in selected_textures %}checked{% endif %}>
+                                <span>{{ option }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Grado de porosidad</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {% for option in evaluation_options.scalp_conditions %}
+                            <label class="evaluation-check">
+                                <input type="checkbox" name="evaluation_scalp_conditions" value="{{ option }}" {% if option in selected_scalp_conditions %}checked{% endif %}>
+                                <span>{{ option }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Afecciones</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {% for option in evaluation_options.scalp_properties %}
+                            <label class="evaluation-check">
+                                <input type="checkbox" name="evaluation_scalp_properties" value="{{ option }}" {% if option in selected_scalp_properties %}checked{% endif %}>
+                                <span>{{ option }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Alergia</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <label class="evaluation-check">
+                                <input type="radio" name="evaluation_allergy_has" value="no" {% if not client or not client.evaluation_allergy_has %}checked{% endif %}>
+                                <span>No</span>
+                            </label>
+                            <label class="evaluation-check">
+                                <input type="radio" name="evaluation_allergy_has" value="yes" {% if client and client.evaluation_allergy_has %}checked{% endif %}>
+                                <span>Si</span>
+                            </label>
+                            <div class="evaluation-input-box">
+                                <label for="evaluation_allergy_detail" class="block text-gray-700 text-sm font-bold mb-2">Cual:</label>
+                                <input type="text" id="evaluation_allergy_detail" name="evaluation_allergy_detail" value="{{ client.evaluation_allergy_detail if client and client.evaluation_allergy_detail else '' }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="evaluation-input-box">
+                            <label for="evaluation_natural_tone" class="block text-gray-700 text-sm font-bold mb-2">Tono natural:</label>
+                            <input type="text" id="evaluation_natural_tone" name="evaluation_natural_tone" value="{{ client.evaluation_natural_tone if client and client.evaluation_natural_tone else '' }}">
+                        </div>
+                        <div class="evaluation-input-box">
+                            <label for="evaluation_artificial_tone" class="block text-gray-700 text-sm font-bold mb-2">Tono Artificial:</label>
+                            <input type="text" id="evaluation_artificial_tone" name="evaluation_artificial_tone" value="{{ client.evaluation_artificial_tone if client and client.evaluation_artificial_tone else '' }}">
+                        </div>
+                        <div class="evaluation-input-box">
+                            <label for="evaluation_gray_percentage" class="block text-gray-700 text-sm font-bold mb-2">Porcentaje de canas:</label>
+                            <input type="text" id="evaluation_gray_percentage" name="evaluation_gray_percentage" value="{{ client.evaluation_gray_percentage if client and client.evaluation_gray_percentage else '' }}">
+                        </div>
+                        <div class="evaluation-input-box">
+                            <label for="evaluation_growth" class="block text-gray-700 text-sm font-bold mb-2">Crecimiento:</label>
+                            <input type="text" id="evaluation_growth" name="evaluation_growth" value="{{ client.evaluation_growth if client and client.evaluation_growth else '' }}">
+                        </div>
+                        <div class="evaluation-input-box">
+                            <label for="evaluation_desired_tone" class="block text-gray-700 text-sm font-bold mb-2">Tono deseado:</label>
+                            <input type="text" id="evaluation_desired_tone" name="evaluation_desired_tone" value="{{ client.evaluation_desired_tone if client and client.evaluation_desired_tone else '' }}">
+                        </div>
+                        <div class="evaluation-input-box">
+                            <label for="evaluation_product_to_use" class="block text-gray-700 text-sm font-bold mb-2">Producto a emplear:</label>
+                            <input type="text" id="evaluation_product_to_use" name="evaluation_product_to_use" value="{{ client.evaluation_product_to_use if client and client.evaluation_product_to_use else '' }}">
+                        </div>
+                        <div class="evaluation-input-box sm:col-span-2">
+                            <label for="evaluation_application_exposure" class="block text-gray-700 text-sm font-bold mb-2">Forma de Aplicacion / Tiempo de Exposicion:</label>
+                            <textarea id="evaluation_application_exposure" name="evaluation_application_exposure" rows="4">{{ client.evaluation_application_exposure if client and client.evaluation_application_exposure else '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">Formulacion: Tiene / Quiere</h3>
+                    <div class="formula-board">
+                        <div class="formula-heading">Tiene</div>
+                        <div></div>
+                        <div class="formula-heading text-right">Quiere</div>
+
+                        <div class="formula-side">
+                            {% for index in range(1, 6) %}
+                            <input type="text" name="evaluation_formula_has_{{ index }}" value="{{ client|attr('evaluation_formula_has_' ~ index) if client else '' }}" inputmode="numeric">
+                            {% endfor %}
+                        </div>
+
+                        <div class="formula-triangle-diagram" aria-hidden="true">
+                            <svg viewBox="0 0 220 230" preserveAspectRatio="none">
+                                <polygon points="110,8 204,222 16,222"></polygon>
+                                <line x1="2" y1="42" x2="218" y2="42"></line>
+                                <line x1="2" y1="80" x2="218" y2="80"></line>
+                                <line x1="2" y1="118" x2="218" y2="118"></line>
+                                <line x1="2" y1="156" x2="218" y2="156"></line>
+                                <line x1="2" y1="194" x2="218" y2="194"></line>
+                            </svg>
+                        </div>
+
+                        <div class="formula-side">
+                            {% for index in range(1, 6) %}
+                            <input type="text" name="evaluation_formula_wants_{{ index }}" value="{{ client|attr('evaluation_formula_wants_' ~ index) if client else '' }}" inputmode="numeric">
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <label for="evaluation_notes" class="block text-gray-700 text-sm font-bold mb-2">Observaciones:</label>
+                <textarea id="evaluation_notes" name="evaluation_notes" rows="5" class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">{{ client.evaluation_notes if client and client.evaluation_notes else '' }}</textarea>
+            </div>
         </div>
-        <div class="mb-5">
-            <label for="address" class="block text-gray-700 text-sm font-bold mb-2">Dirección (Opcional):</label>
-            <input type="text" id="address" name="address" value="{{ client.address if client else '' }}" 
-                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
-        </div>
-        <div class="mb-6">
-            <label for="phone" class="block text-gray-700 text-sm font-bold mb-2">Celular (Opcional):</label>
-            <input type="text" id="phone" name="phone" value="{{ client.phone if client else '' }}" 
-                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent">
-        </div>
-        <div class="flex items-center justify-between">
+
+        <div class="flex items-center justify-between mt-8">
             <button type="submit" class="btn bg-blue-600 hover:bg-blue-700">
                 {{ 'Actualizar Cliente' if client else 'Agregar Cliente' }}
             </button>

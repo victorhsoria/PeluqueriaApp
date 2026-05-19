@@ -8,7 +8,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-lg mb-6">
         <div>
             <p><strong class="text-gray-700">ID:</strong> {{ client.id }}</p>
-            <p><strong class="text-gray-700">Dirección:</strong> {{ client.address if client.address else 'N/A' }}</p>
+            <p><strong class="text-gray-700">Direccion:</strong> {{ client.address if client.address else 'N/A' }}</p>
         </div>
         <div>
             <p><strong class="text-gray-700">Celular:</strong> {{ client.phone if client.phone else 'N/A' }}</p>
@@ -16,13 +16,165 @@
     </div>
     <div class="text-right">
         <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn bg-yellow-500 hover:bg-yellow-600 mr-2">Editar Cliente</a>
-        <form action="{{ url_for('delete_client', client_id=client.id) }}" method="post" class="inline-block" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este cliente y todos sus turnos/trabajos asociados?');">
+        <form action="{{ url_for('delete_client', client_id=client.id) }}" method="post" class="inline-block" onsubmit="return confirm('Estas seguro de que quieres eliminar este cliente y todos sus turnos/trabajos asociados?');">
             <button type="submit" class="btn bg-red-500 hover:bg-red-600">Eliminar Cliente</button>
         </form>
     </div>
 </div>
 
-<!-- Sección de Turnos -->
+{% set selected_hair_types = selected_values(client.evaluation_hair_types) %}
+{% set selected_textures = selected_values(client.evaluation_textures) %}
+{% set selected_scalp_conditions = selected_values(client.evaluation_scalp_conditions) %}
+{% set selected_scalp_properties = selected_values(client.evaluation_scalp_properties) %}
+
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl mb-8">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-gray-800">Evaluacion del cliente</h2>
+        <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn bg-yellow-500 hover:bg-yellow-600 text-sm px-3 py-1.5">
+            Editar Evaluacion
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="space-y-5">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">Tipo de cabello</h3>
+                <div class="evaluation-display-grid">
+                    {% for option in evaluation_options.hair_types %}
+                    <div class="evaluation-display-item {% if option in selected_hair_types %}is-checked{% endif %}">
+                        <span class="evaluation-box">{% if option in selected_hair_types %}X{% endif %}</span>
+                        <span>{{ option }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">Textura</h3>
+                <div class="evaluation-display-grid compact">
+                    {% for option in evaluation_options.textures %}
+                    <div class="evaluation-display-item {% if option in selected_textures %}is-checked{% endif %}">
+                        <span class="evaluation-box">{% if option in selected_textures %}X{% endif %}</span>
+                        <span>{{ option }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">Grado de porosidad</h3>
+                <div class="evaluation-display-grid compact">
+                    {% for option in evaluation_options.scalp_conditions %}
+                    <div class="evaluation-display-item {% if option in selected_scalp_conditions %}is-checked{% endif %}">
+                        <span class="evaluation-box">{% if option in selected_scalp_conditions %}X{% endif %}</span>
+                        <span>{{ option }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">Afecciones</h3>
+                <div class="evaluation-display-grid">
+                    {% for option in evaluation_options.scalp_properties %}
+                    <div class="evaluation-display-item {% if option in selected_scalp_properties %}is-checked{% endif %}">
+                        <span class="evaluation-box">{% if option in selected_scalp_properties %}X{% endif %}</span>
+                        <span>{{ option }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">Alergia</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="evaluation-display-item {% if not client.evaluation_allergy_has %}is-checked{% endif %}">
+                        <span class="evaluation-box">{% if not client.evaluation_allergy_has %}X{% endif %}</span>
+                        <span>No</span>
+                    </div>
+                    <div class="evaluation-display-item {% if client.evaluation_allergy_has %}is-checked{% endif %}">
+                        <span class="evaluation-box">{% if client.evaluation_allergy_has %}X{% endif %}</span>
+                        <span>Si</span>
+                    </div>
+                    <div class="evaluation-display-item">
+                        <span>Cual: {{ client.evaluation_allergy_detail or '-' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="evaluation-detail-grid">
+                <div>
+                    <strong>Tono natural:</strong>
+                    <span>{{ client.evaluation_natural_tone or '-' }}</span>
+                </div>
+                <div>
+                    <strong>Tono Artificial:</strong>
+                    <span>{{ client.evaluation_artificial_tone or '-' }}</span>
+                </div>
+                <div>
+                    <strong>Porcentaje de canas:</strong>
+                    <span>{{ client.evaluation_gray_percentage or '-' }}</span>
+                </div>
+                <div>
+                    <strong>Crecimiento:</strong>
+                    <span>{{ client.evaluation_growth or '-' }}</span>
+                </div>
+                <div>
+                    <strong>Tono deseado:</strong>
+                    <span>{{ client.evaluation_desired_tone or '-' }}</span>
+                </div>
+                <div>
+                    <strong>Producto a emplear:</strong>
+                    <span>{{ client.evaluation_product_to_use or '-' }}</span>
+                </div>
+                <div>
+                    <strong>Forma de Aplicacion / Tiempo de Exposicion:</strong>
+                    <span class="whitespace-pre-line">{{ client.evaluation_application_exposure or '-' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h3 class="text-lg font-semibold text-gray-700 mb-3">Formulacion</h3>
+            <div class="formula-board formula-readonly">
+                <div class="formula-heading">Tiene</div>
+                <div></div>
+                <div class="formula-heading text-right">Quiere</div>
+
+                <div class="formula-side">
+                    {% for index in range(1, 6) %}
+                    <div class="formula-value">{{ client|attr('evaluation_formula_has_' ~ index) or '-' }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="formula-triangle-diagram" aria-hidden="true">
+                    <svg viewBox="0 0 220 230" preserveAspectRatio="none">
+                        <polygon points="110,8 204,222 16,222"></polygon>
+                        <line x1="2" y1="42" x2="218" y2="42"></line>
+                        <line x1="2" y1="80" x2="218" y2="80"></line>
+                        <line x1="2" y1="118" x2="218" y2="118"></line>
+                        <line x1="2" y1="156" x2="218" y2="156"></line>
+                        <line x1="2" y1="194" x2="218" y2="194"></line>
+                    </svg>
+                </div>
+
+                <div class="formula-side">
+                    {% for index in range(1, 6) %}
+                    <div class="formula-value text-right">{{ client|attr('evaluation_formula_wants_' ~ index) or '-' }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if client.evaluation_notes %}
+    <div class="mt-6">
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">Observaciones</h3>
+        <p class="text-gray-800 whitespace-pre-line">{{ client.evaluation_notes }}</p>
+    </div>
+    {% endif %}
+</div>
+
 <div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl mb-8">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-semibold text-gray-800">Turnos</h2>
@@ -31,12 +183,12 @@
         </a>
     </div>
     {% if client.appointments %}
-    <div class="overflow-x-auto"> {# Added overflow-x-auto here #}
+    <div class="overflow-x-auto">
         <table class="min-w-full bg-white table-auto border-collapse">
             <thead class="bg-gray-100">
                 <tr>
                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Fecha y Hora</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Descripción</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Descripcion</th>
                     <th class="px-4 py-3 text-center text-sm font-medium text-gray-600 uppercase tracking-wider">Acciones</th>
                 </tr>
             </thead>
@@ -49,7 +201,7 @@
                         <a href="{{ url_for('edit_appointment', client_id=client.id, appointment_id=appointment.id) }}" class="inline-block bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out mr-2">
                             Editar
                         </a>
-                        <form action="{{ url_for('delete_appointment', client_id=client.id, appointment_id=appointment.id) }}" method="post" class="inline-block" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este turno?');">
+                        <form action="{{ url_for('delete_appointment', client_id=client.id, appointment_id=appointment.id) }}" method="post" class="inline-block" onsubmit="return confirm('Estas seguro de que quieres eliminar este turno?');">
                             <button type="submit" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out">
                                 Eliminar
                             </button>
@@ -65,7 +217,6 @@
     {% endif %}
 </div>
 
-<!-- Sección de Trabajos Realizados -->
 <div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-semibold text-gray-800">Trabajos Realizados</h2>
@@ -74,12 +225,12 @@
         </a>
     </div>
     {% if client.services %}
-    <div class="overflow-x-auto"> {# Added overflow-x-auto here #}
+    <div class="overflow-x-auto">
         <table class="min-w-full bg-white table-auto border-collapse">
             <thead class="bg-gray-100">
                 <tr>
                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Fecha</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Descripción</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Descripcion</th>
                     <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Precio</th>
                     <th class="px-4 py-3 text-center text-sm font-medium text-gray-600 uppercase tracking-wider">Acciones</th>
                 </tr>
@@ -94,7 +245,7 @@
                         <a href="{{ url_for('edit_service', client_id=client.id, service_id=service.id) }}" class="inline-block bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out mr-2">
                             Editar
                         </a>
-                        <form action="{{ url_for('delete_service', client_id=client.id, service_id=service.id) }}" method="post" class="inline-block" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este trabajo/servicio?');">
+                        <form action="{{ url_for('delete_service', client_id=client.id, service_id=service.id) }}" method="post" class="inline-block" onsubmit="return confirm('Estas seguro de que quieres eliminar este trabajo/servicio?');">
                             <button type="submit" class="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out">
                                 Eliminar
                             </button>

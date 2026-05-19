@@ -6,6 +6,51 @@ from sqlalchemy import func, extract
 import locale
 
 
+CLIENT_EVALUATION_OPTIONS = {
+    'hair_types': ['Virgen', 'Procesado', 'Fino', 'Normal', 'Ondulado', 'Rizado'],
+    'textures': ['Grueso', 'Normal', 'Fino'],
+    'scalp_conditions': ['Nada', 'Poco', 'Muy'],
+    'scalp_properties': ['Seborrea', 'Pitiriasis', 'Alopecia', 'Pediculosis'],
+}
+
+
+def _serialize_selected(values):
+    return ','.join(value for value in values if value)
+
+
+def _selected_values(value):
+    if not value:
+        return []
+    return [item for item in value.split(',') if item]
+
+
+def _apply_client_form_data(client):
+    client.first_name = request.form['first_name']
+    client.last_name = request.form['last_name']
+    client.address = request.form.get('address')
+    client.phone = request.form.get('phone')
+    client.evaluation_hair_types = _serialize_selected(request.form.getlist('evaluation_hair_types'))
+    client.evaluation_textures = _serialize_selected(request.form.getlist('evaluation_textures'))
+    client.evaluation_scalp_conditions = _serialize_selected(request.form.getlist('evaluation_scalp_conditions'))
+    client.evaluation_scalp_properties = _serialize_selected(request.form.getlist('evaluation_scalp_properties'))
+    client.evaluation_hair_loss = 'Alopecia' in request.form.getlist('evaluation_scalp_properties')
+    client.evaluation_dandruff = 'Pitiriasis' in request.form.getlist('evaluation_scalp_properties')
+    client.evaluation_allergy_has = request.form.get('evaluation_allergy_has') == 'yes'
+    client.evaluation_allergy_detail = request.form.get('evaluation_allergy_detail')
+    client.evaluation_natural_tone = request.form.get('evaluation_natural_tone')
+    client.evaluation_artificial_tone = request.form.get('evaluation_artificial_tone')
+    client.evaluation_gray_percentage = request.form.get('evaluation_gray_percentage')
+    client.evaluation_growth = request.form.get('evaluation_growth')
+    client.evaluation_desired_tone = request.form.get('evaluation_desired_tone')
+    client.evaluation_product_to_use = request.form.get('evaluation_product_to_use')
+    client.evaluation_application_exposure = request.form.get('evaluation_application_exposure')
+    client.evaluation_notes = request.form.get('evaluation_notes')
+
+    for index in range(1, 6):
+        setattr(client, f'evaluation_formula_has_{index}', request.form.get(f'evaluation_formula_has_{index}'))
+        setattr(client, f'evaluation_formula_wants_{index}', request.form.get(f'evaluation_formula_wants_{index}'))
+
+
 @app.route('/')
 def index():
     """
@@ -287,13 +332,8 @@ def add_client():
     Permite agregar un nuevo cliente.
     """
     if request.method == 'POST':
-        first_name = request.form['first_name']
-        last_name = request.form['last_name']
-        address = request.form.get('address')
-        phone = request.form.get('phone')
-
-        new_client = Client(first_name=first_name, last_name=last_name,
-                             address=address, phone=phone)
+        new_client = Client()
+        _apply_client_form_data(new_client)
         try:
             db.session.add(new_client)
             db.session.commit()
@@ -302,7 +342,11 @@ def add_client():
         except Exception as e:
             flash(f'Error al agregar cliente: {e}', 'danger')
             db.session.rollback()
-    return render_template('add_edit_client.html', client=None, title='Agregar Cliente')
+    return render_template('add_edit_client.html',
+                           client=None,
+                           title='Agregar Cliente',
+                           evaluation_options=CLIENT_EVALUATION_OPTIONS,
+                           selected_values=_selected_values)
 
 @app.route('/clients/edit/<int:client_id>', methods=['GET', 'POST'])
 def edit_client(client_id):
@@ -311,10 +355,7 @@ def edit_client(client_id):
     """
     client = Client.query.get_or_404(client_id)
     if request.method == 'POST':
-        client.first_name = request.form['first_name']
-        client.last_name = request.form['last_name']
-        client.address = request.form.get('address')
-        client.phone = request.form.get('phone')
+        _apply_client_form_data(client)
         try:
             db.session.commit()
             flash('Cliente actualizado exitosamente!', 'success')
@@ -322,7 +363,11 @@ def edit_client(client_id):
         except Exception as e:
             flash(f'Error al actualizar cliente: {e}', 'danger')
             db.session.rollback()
-    return render_template('add_edit_client.html', client=client, title='Editar Cliente')
+    return render_template('add_edit_client.html',
+                           client=client,
+                           title='Editar Cliente',
+                           evaluation_options=CLIENT_EVALUATION_OPTIONS,
+                           selected_values=_selected_values)
 
 @app.route('/clients/delete/<int:client_id>', methods=['POST'])
 def delete_client(client_id):
@@ -346,7 +391,11 @@ def client_detail(client_id):
     """
     client = Client.query.get_or_404(client_id)
     # Los turnos y servicios se cargan automáticamente debido a las relaciones en el modelo
-    return render_template('client_detail.html', client=client, title=f'Detalle de {client.first_name} {client.last_name}')
+    return render_template('client_detail.html',
+                           client=client,
+                           title=f'Detalle de {client.first_name} {client.last_name}',
+                           evaluation_options=CLIENT_EVALUATION_OPTIONS,
+                           selected_values=_selected_values)
 
 # --- Rutas de Gestión de Turnos (Appointments) ---
 

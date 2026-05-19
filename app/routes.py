@@ -50,6 +50,9 @@ def _apply_client_form_data(client):
         setattr(client, f'evaluation_formula_has_{index}', request.form.get(f'evaluation_formula_has_{index}'))
         setattr(client, f'evaluation_formula_wants_{index}', request.form.get(f'evaluation_formula_wants_{index}'))
 
+    for index in range(1, 5):
+        setattr(client, f'evaluation_formula_text_{index}', request.form.get(f'evaluation_formula_text_{index}'))
+
 
 @app.route('/')
 def index():

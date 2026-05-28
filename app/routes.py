@@ -326,8 +326,14 @@ def clients():
     """
     Muestra la lista de clientes.
     """
-    clients = Client.query.order_by(Client.last_name, Client.first_name).all()
-    return render_template('clients.html', clients=clients)
+    sort_by = request.args.get('sort_by', 'last_name')
+    if sort_by == 'first_name':
+        clients = Client.query.order_by(Client.first_name, Client.last_name).all()
+    else:
+        sort_by = 'last_name'
+        clients = Client.query.order_by(Client.last_name, Client.first_name).all()
+
+    return render_template('clients.html', clients=clients, selected_sort=sort_by)
 
 @app.route('/clients/add', methods=['GET', 'POST'])
 def add_client():

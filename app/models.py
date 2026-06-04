@@ -123,6 +123,8 @@ class Appointment(db.Model):
     date_time = db.Column(db.DateTime, nullable=False) # Fecha y hora del turno
     description = db.Column(db.String(255), nullable=False) # Descripción del turno (ej: "Corte", "Tinte")
 
+    google_event_id = db.Column(db.String(255), nullable=True)
+
     def __repr__(self):
         return f"<Appointment {self.client.first_name} {self.client.last_name} on {self.date_time}>"
 

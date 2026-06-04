@@ -1,9 +1,19 @@
-from flask import render_template, request, redirect, url_for, flash, jsonify
+from flask import render_template, request, redirect, url_for, flash, jsonify, session
 from app import app, db
 from app.models import Product, Order, OrderItem, Client, Appointment, Service, UsedProduct
+from app.google_calendar import (
+    build_google_flow,
+    delete_appointment_from_google,
+    delete_google_token,
+    google_calendar_configured,
+    google_calendar_connected,
+    save_credentials,
+    sync_appointment_to_google,
+)
 from datetime import datetime, date, timedelta, timezone
 from sqlalchemy import func, extract
 import locale
+import os
 
 
 CLIENT_EVALUATION_OPTIONS = {
@@ -487,6 +497,12 @@ def add_appointment(client_id=None): # <--- CORRECCIÓN CLAVE AQUÍ: client_id e
             
             new_appointment = Appointment(client_id=client.id, date_time=date_time_obj, description=description)
             db.session.add(new_appointment)
+            db.session.flush()
+            if google_calendar_connected():
+                try:
+                    new_appointment.google_event_id = sync_appointment_to_google(new_appointment)
+                except Exception as sync_error:
+                    flash(f'Turno guardado, pero no se pudo sincronizar con Google Calendar: {sync_error}', 'danger')
             db.session.commit()
             flash('Turno agregado exitosamente!', 'success')
             # Redirigir al detalle del cliente si se agregó desde allí, o al calendario si se agregó desde el calendario
@@ -526,9 +542,14 @@ def edit_appointment(client_id, appointment_id):
         return redirect(url_for('client_detail', client_id=client.id))
 
     if request.method == 'POST':
-        appointment.date_time = datetime.strptime(request.form['date_time'], '%Y-%m-%dT%H:%M')
-        appointment.description = request.form['description']
         try:
+            appointment.date_time = datetime.strptime(request.form['date_time'], '%Y-%m-%dT%H:%M')
+            appointment.description = request.form['description']
+            if google_calendar_connected():
+                try:
+                    appointment.google_event_id = sync_appointment_to_google(appointment)
+                except Exception as sync_error:
+                    flash(f'Turno actualizado, pero no se pudo sincronizar con Google Calendar: {sync_error}', 'danger')
             db.session.commit()
             flash('Turno actualizado exitosamente!', 'success')
             return redirect(url_for('client_detail', client_id=client.id))
@@ -551,8 +572,14 @@ def delete_appointment(client_id, appointment_id):
         flash('Turno no encontrado para este cliente.', 'danger')
         return redirect(url_for('client_detail', client_id=client.id))
     try:
+        google_event_id = appointment.google_event_id
         db.session.delete(appointment)
         db.session.commit()
+        if google_calendar_connected() and google_event_id:
+            try:
+                delete_appointment_from_google(google_event_id)
+            except Exception as sync_error:
+                flash(f'Turno eliminado, pero no se pudo eliminar de Google Calendar: {sync_error}', 'danger')
         flash('Turno eliminado exitosamente!', 'success')
     except Exception as e:
         flash(f'Error al eliminar turno: {e}', 'danger')
@@ -762,7 +789,95 @@ def appointments_calendar():
     """
     Muestra el calendario de turnos.
     """
-    return render_template('appointments_calendar.html', title='Calendario de Turnos')
+    return render_template(
+        'appointments_calendar.html',
+        title='Calendario de Turnos',
+        google_calendar_configured=google_calendar_configured(),
+        google_calendar_connected=google_calendar_connected()
+    )
+
+
+@app.route('/google-calendar/connect')
+def google_calendar_connect():
+    """
+    Inicia el flujo OAuth para conectar Google Calendar.
+    """
+    if not google_calendar_configured():
+        flash('Faltan GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en la configuracion del servidor.', 'danger')
+        return redirect(url_for('appointments_calendar'))
+
+    redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI') or url_for('google_calendar_callback', _external=True)
+    flow = build_google_flow(redirect_uri)
+    authorization_url, state = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true',
+        prompt='consent'
+    )
+    session['google_oauth_state'] = state
+    return redirect(authorization_url)
+
+
+@app.route('/google-calendar/callback')
+def google_calendar_callback():
+    """
+    Recibe el callback de Google y guarda el token OAuth.
+    """
+    if not google_calendar_configured():
+        flash('Faltan credenciales de Google Calendar en el servidor.', 'danger')
+        return redirect(url_for('appointments_calendar'))
+
+    redirect_uri = os.environ.get('GOOGLE_REDIRECT_URI') or url_for('google_calendar_callback', _external=True)
+    flow = build_google_flow(redirect_uri)
+    flow.state = session.get('google_oauth_state')
+    authorization_response = request.url
+    if redirect_uri.startswith('https://') and authorization_response.startswith('http://'):
+        authorization_response = authorization_response.replace('http://', 'https://', 1)
+
+    try:
+        flow.fetch_token(authorization_response=authorization_response)
+        save_credentials(flow.credentials)
+        flash('Google Calendar conectado correctamente.', 'success')
+    except Exception as e:
+        flash(f'No se pudo conectar Google Calendar: {e}', 'danger')
+
+    return redirect(url_for('appointments_calendar'))
+
+
+@app.route('/google-calendar/disconnect', methods=['POST'])
+def google_calendar_disconnect():
+    """
+    Desconecta Google Calendar eliminando el token local.
+    """
+    delete_google_token()
+    flash('Google Calendar desconectado.', 'success')
+    return redirect(url_for('appointments_calendar'))
+
+
+@app.route('/google-calendar/sync', methods=['POST'])
+def google_calendar_sync():
+    """
+    Sincroniza los turnos existentes con Google Calendar.
+    """
+    if not google_calendar_connected():
+        flash('Primero conecta Google Calendar.', 'danger')
+        return redirect(url_for('appointments_calendar'))
+
+    synced = 0
+    failed = 0
+    appointments = Appointment.query.join(Client).order_by(Appointment.date_time).all()
+    for appointment in appointments:
+        try:
+            appointment.google_event_id = sync_appointment_to_google(appointment)
+            synced += 1
+        except Exception:
+            failed += 1
+
+    db.session.commit()
+    if failed:
+        flash(f'Se sincronizaron {synced} turnos. {failed} no pudieron sincronizarse.', 'danger')
+    else:
+        flash(f'Se sincronizaron {synced} turnos con Google Calendar.', 'success')
+    return redirect(url_for('appointments_calendar'))
 
 @app.route('/api/appointments')
 def api_appointments():

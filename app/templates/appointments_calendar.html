@@ -3,6 +3,35 @@
 {% block content %}
 <h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Calendario de Turnos</h1>
 
+<div class="max-w-6xl mx-auto bg-white p-5 rounded-lg shadow-xl mb-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h2 class="text-xl font-semibold text-gray-800">Google Calendar</h2>
+            {% if google_calendar_connected %}
+            <p class="text-sm text-green-700 font-semibold">Conectado. Los turnos nuevos y editados se sincronizan automaticamente.</p>
+            {% elif google_calendar_configured %}
+            <p class="text-sm text-gray-600">Configurado, pero todavia no conectado con una cuenta de Google.</p>
+            {% else %}
+            <p class="text-sm text-red-700 font-semibold">Faltan credenciales de Google en PythonAnywhere.</p>
+            {% endif %}
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2">
+            {% if google_calendar_connected %}
+            <form action="{{ url_for('google_calendar_sync') }}" method="post">
+                <button type="submit" class="btn bg-blue-600 hover:bg-blue-700 w-full">Sincronizar turnos</button>
+            </form>
+            <form action="{{ url_for('google_calendar_disconnect') }}" method="post" onsubmit="return confirm('Desconectar Google Calendar?');">
+                <button type="submit" class="btn bg-gray-500 hover:bg-gray-600 w-full">Desconectar</button>
+            </form>
+            {% else %}
+            <a href="{{ url_for('google_calendar_connect') }}" class="btn btn-green text-center {% if not google_calendar_configured %}pointer-events-none opacity-50{% endif %}">
+                Conectar Google Calendar
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
 <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
     <!-- Sección del Calendario -->
     <div class="md:col-span-2 bg-white p-6 rounded-lg shadow-xl">

@@ -7,18 +7,9 @@
     <a href="{{ url_for('client_stats') }}" class="btn bg-purple-600 hover:bg-purple-700">
         Ver Estadísticas
     </a>
-    <form method="GET" action="{{ url_for('clients') }}" class="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex flex-col sm:flex-row gap-3 sm:items-end">
-        <div>
-            <label for="sort_by" class="block text-gray-700 text-sm font-bold mb-1">Ordenar alfabeticamente por:</label>
-            <select id="sort_by" name="sort_by" class="min-w-48">
-                <option value="last_name" {% if selected_sort == 'last_name' %}selected{% endif %}>Apellido</option>
-                <option value="first_name" {% if selected_sort == 'first_name' %}selected{% endif %}>Nombre</option>
-            </select>
-        </div>
-        <button type="submit" class="btn bg-blue-600 hover:bg-blue-700 py-2">
-            Aplicar
-        </button>
-    </form>
+    <span class="bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200 text-sm font-semibold text-gray-600">
+        Ordenado alfabeticamente por nombre
+    </span>
     <a href="{{ url_for('add_client') }}" class="btn btn-green">
         + Agregar Nuevo Cliente
     </a>

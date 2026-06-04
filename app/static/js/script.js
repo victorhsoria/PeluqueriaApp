@@ -32,20 +32,20 @@ function addItemToOrder() {
     const itemIndex = container.children.length; // Unique index for new item
 
     const itemDiv = document.createElement('div');
-    itemDiv.className = 'bg-gray-50 p-4 rounded-lg shadow-inner border border-gray-200';
+    itemDiv.className = 'orders-item-card';
     itemDiv.innerHTML = `
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold text-gray-700">Producto #${itemIndex + 1}</h3>
-            <button type="button" class="text-red-500 hover:text-red-700 font-bold text-xl remove-item-btn" title="Eliminar este producto">
+        <div class="orders-item-card-header">
+            <h3>Producto #${itemIndex + 1}</h3>
+            <button type="button" class="remove-item-btn" title="Eliminar este producto">
                 &times;
             </button>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="orders-item-grid">
             <div>
                 <label for="product_select_${itemIndex}" class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Producto:</label>
                 <select id="product_select_${itemIndex}" 
                         name="product_id[]" 
-                        class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent product-select">
+                        class="product-select">
                     <option value="0">-- Seleccionar de inventario --</option>
                     ${availableProducts.map(p => `<option value="${p.id}">${p.description} (${p.brand})</option>`).join('')}
                 </select>
@@ -54,25 +54,26 @@ function addItemToOrder() {
             <div>
                 <label for="item_brand_${itemIndex}" class="block text-gray-700 text-sm font-bold mb-2">Marca:</label>
                 <input type="text" id="item_brand_${itemIndex}" name="item_brand[]" required
-                       class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent item-brand">
+                       class="item-brand">
             </div>
             <div>
                 <label for="item_description_${itemIndex}" class="block text-gray-700 text-sm font-bold mb-2">Descripción:</label>
                 <input type="text" id="item_description_${itemIndex}" name="item_description[]" required
-                       class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent item-description">
+                       class="item-description">
             </div>
             <div>
                 <label for="item_wholesale_price_${itemIndex}" class="block text-gray-700 text-sm font-bold mb-2">Precio Mayorista ($):</label>
                 <input type="number" step="0.01" id="item_wholesale_price_${itemIndex}" name="item_wholesale_price[]" required min="0"
-                       class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent item-wholesale-price">
+                       class="item-wholesale-price">
             </div>
             <div>
                 <label for="item_quantity_${itemIndex}" class="block text-gray-700 text-sm font-bold mb-2">Cantidad:</label>
                 <input type="number" step="1" id="item_quantity_${itemIndex}" name="item_quantity[]" required min="1" value="1"
-                       class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent item-quantity">
+                       class="item-quantity">
             </div>
-            <div class="md:col-span-2 text-right pt-2">
-                <span class="font-semibold text-lg text-gray-800">Subtotal: $<span class="item-subtotal">0.00</span></span>
+            <div class="orders-item-subtotal">
+                <span>Subtotal</span>
+                <strong>$<span class="item-subtotal">0.00</span></strong>
             </div>
         </div>
     `;
@@ -199,7 +200,8 @@ async function exportOrderToPdf(orderId, orderDate) {
         if (tableBody) {
             for (const row of tableBody.rows) {
                 const firstCell = row.cells[0]; // First cell contains the order ID
-                if (firstCell && firstCell.textContent.trim() === String(orderId)) {
+                const rowOrderId = row.dataset.orderId || (firstCell ? firstCell.textContent.trim().replace('#', '') : '');
+                if (rowOrderId === String(orderId)) {
                     orderRow = row;
                     break;
                 }
@@ -215,16 +217,27 @@ async function exportOrderToPdf(orderId, orderDate) {
         // Extract order details from the row
         const cells = orderRow.querySelectorAll('td');
         if (cells.length > 0) {
-            orderDetails.id = cells[0].textContent.trim();
+            orderDetails.id = orderRow.dataset.orderId || cells[0].textContent.trim().replace('#', '');
             // orderDetails.date = cells[1].textContent.trim(); // Se elimina la fecha del pedido del PDF
             
             // Extract items
-            const itemsListElement = cells[2].querySelector('ul');
+            const productCards = cells[2].querySelectorAll('.orders-product-list > div');
             orderDetails.items = [];
-            if (itemsListElement) {
+            if (productCards.length > 0) {
+                productCards.forEach(productCard => {
+                    orderDetails.items.push({
+                        quantity: productCard.dataset.quantity || '',
+                        brand: productCard.dataset.brand || '',
+                        description: productCard.dataset.description || ''
+                    });
+                });
+            } else {
+                const itemsListElement = cells[2].querySelector('ul');
+                if (itemsListElement) {
                 itemsListElement.querySelectorAll('li').forEach(li => {
                     orderDetails.items.push(li.textContent.trim());
                 });
+                }
             }
             // orderDetails.total = cells[3].textContent.trim(); // Se elimina el total del pedido del PDF
         } else {
@@ -262,7 +275,16 @@ async function exportOrderToPdf(orderId, orderDate) {
 
         // --- Dibujar filas de la tabla ---
         doc.setFontSize(10); // Tamaño de fuente para el contenido de la tabla
-        orderDetails.items.forEach(itemText => {
+        orderDetails.items.forEach(item => {
+            if (typeof item === 'object') {
+                doc.text(String(item.quantity), margin, y);
+                doc.text(String(item.brand), margin + columnWidths.cantidad, y);
+                doc.text(String(item.description), margin + columnWidths.cantidad + columnWidths.marca, y);
+                y += 7;
+                return;
+            }
+
+            const itemText = item;
             // Regex para parsear "1 x Marca - Descripción ($Price)"
             // El grupo del precio unitario se extrae pero no se usa para el PDF
             const parts = itemText.match(/(\d+)\s+x\s+(.*?)\s+-\s+(.*?)\s+\((.*?)\)/); 

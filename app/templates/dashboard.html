@@ -1,0 +1,80 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="dashboard-page">
+    <section class="dashboard-hero">
+        <div>
+            <p class="dashboard-eyebrow">Panel del dia</p>
+            <h1>Inicio</h1>
+            <p>Hoy es {{ today_formatted }}. Aca tenes lo importante para arrancar la jornada.</p>
+        </div>
+        <div class="dashboard-actions">
+            <a href="{{ url_for('add_client') }}" class="dashboard-button">+ Agregar Cliente</a>
+            <a href="{{ url_for('appointments_calendar') }}" class="dashboard-ghost">Ver Calendario</a>
+        </div>
+    </section>
+
+    <section class="dashboard-summary" aria-label="Resumen general">
+        <a href="{{ url_for('clients') }}">
+            <span>Clientes</span>
+            <strong>{{ client_count }}</strong>
+        </a>
+        <a href="{{ url_for('products') }}">
+            <span>Productos</span>
+            <strong>{{ product_count }}</strong>
+        </a>
+        <a href="{{ url_for('appointments_calendar') }}">
+            <span>Turnos de hoy</span>
+            <strong>{{ appointment_count }}</strong>
+        </a>
+        <a href="{{ url_for('products') }}">
+            <span>Stock bajo</span>
+            <strong>{{ low_stock_count }}</strong>
+        </a>
+    </section>
+
+    <section class="dashboard-grid">
+        <div class="dashboard-panel dashboard-today-panel">
+            <div class="dashboard-panel-header">
+                <div>
+                    <p class="dashboard-eyebrow">Agenda</p>
+                    <h2>Turnos de hoy</h2>
+                </div>
+                <a href="{{ url_for('appointments_calendar') }}" class="dashboard-small-link">Calendario</a>
+            </div>
+            {% if today_appointments %}
+            <div class="dashboard-list">
+                {% for appt in today_appointments %}
+                <a href="{{ url_for('edit_appointment', client_id=appt.client_id, appointment_id=appt.appointment_id) }}" class="dashboard-list-item">
+                    <time>{{ appt.time }}</time>
+                    <div>
+                        <strong>{{ appt.client_name }}</strong>
+                        <span>{{ appt.description }}</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="dashboard-empty">No hay turnos programados para hoy.</p>
+            {% endif %}
+        </div>
+
+        <div class="dashboard-panel">
+            <div class="dashboard-panel-header">
+                <div>
+                    <p class="dashboard-eyebrow">Accesos</p>
+                    <h2>Trabajo rapido</h2>
+                </div>
+            </div>
+            <div class="dashboard-shortcuts">
+                <a href="{{ url_for('clients') }}">Clientes</a>
+                <a href="{{ url_for('add_client') }}">Nuevo cliente</a>
+                <a href="{{ url_for('add_order') }}">Nuevo pedido</a>
+                <a href="{{ url_for('products') }}">Inventario</a>
+                <a href="{{ url_for('reports') }}">Reportes</a>
+                <a href="{{ url_for('client_stats') }}">Estadisticas</a>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

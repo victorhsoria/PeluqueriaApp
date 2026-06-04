@@ -59,7 +59,32 @@ def index():
     """
     Ruta principal, redirige a la página de productos.
     """
-    return redirect(url_for('products'))
+    today = date.today()
+
+    today_appointments = Appointment.query.join(Client).filter(
+        func.date(Appointment.date_time) == today
+    ).order_by(Appointment.date_time).all()
+
+    formatted_today_appointments = []
+    for appt in today_appointments:
+        formatted_today_appointments.append({
+            'time': appt.date_time.strftime('%H:%M'),
+            'client_name': f"{appt.client.first_name} {appt.client.last_name}",
+            'description': appt.description,
+            'client_id': appt.client.id,
+            'appointment_id': appt.id
+        })
+
+    return render_template(
+        'dashboard.html',
+        title='Inicio',
+        today_formatted=today.strftime('%A, %d de %B'),
+        today_appointments=formatted_today_appointments,
+        client_count=Client.query.count(),
+        product_count=Product.query.count(),
+        appointment_count=len(formatted_today_appointments),
+        low_stock_count=Product.query.filter(Product.stock <= 3).count()
+    )
 
 # --- Rutas de Gestión de Productos ---
 
@@ -203,13 +228,22 @@ def orders():
     orders = orders_query.all()
     
     # Cargar los items de cada pedido para mostrarlos
+    total_units = 0
+    total_items = 0
     for order in orders:
         order.items_list = OrderItem.query.filter_by(order_id=order.id).all()
+        total_items += len(order.items_list)
+        total_units += sum(item.quantity for item in order.items_list)
+
+    total_orders_amount = sum(order.total_order_price for order in orders)
 
     return render_template('orders.html', 
                            orders=orders, 
                            from_date=search_from_date, 
-                           to_date=search_to_date)
+                           to_date=search_to_date,
+                           total_items=total_items,
+                           total_units=total_units,
+                           total_orders_amount=total_orders_amount)
 
 
 @app.route('/orders/add', methods=['GET', 'POST'])
@@ -326,14 +360,8 @@ def clients():
     """
     Muestra la lista de clientes.
     """
-    sort_by = request.args.get('sort_by', 'last_name')
-    if sort_by == 'first_name':
-        clients = Client.query.order_by(Client.first_name, Client.last_name).all()
-    else:
-        sort_by = 'last_name'
-        clients = Client.query.order_by(Client.last_name, Client.first_name).all()
-
-    return render_template('clients.html', clients=clients, selected_sort=sort_by)
+    clients = Client.query.order_by(Client.first_name, Client.last_name).all()
+    return render_template('clients.html', clients=clients)
 
 @app.route('/clients/add', methods=['GET', 'POST'])
 def add_client():

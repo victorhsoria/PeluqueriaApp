@@ -110,9 +110,25 @@ class Client(db.Model):
     # Relaciones con Turnos y Servicios
     appointments = db.relationship('Appointment', backref='client', lazy=True, cascade="all, delete-orphan")
     services = db.relationship('Service', backref='client', lazy=True, cascade="all, delete-orphan")
+    images = db.relationship('ClientImage', backref='client', lazy=True, cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Client {self.first_name} {self.last_name}>"
+
+
+class ClientImage(db.Model):
+    """
+    Imagen asociada a un cliente.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    original_filename = db.Column(db.String(255), nullable=True)
+    uploaded_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC))
+
+    def __repr__(self):
+        return f"<ClientImage {self.filename} for Client {self.client_id}>"
+
 
 class Appointment(db.Model):
     """

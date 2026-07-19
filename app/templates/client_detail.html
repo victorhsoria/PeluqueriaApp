@@ -22,6 +22,39 @@
     </div>
 </div>
 
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl mb-8">
+    <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-6">
+        <div>
+            <h2 class="text-2xl font-semibold text-gray-800">Imagenes del cliente</h2>
+            <p class="text-sm text-gray-600 mt-1">Subi fotos del cabello, trabajos realizados o referencias.</p>
+        </div>
+        <form action="{{ url_for('add_client_image', client_id=client.id) }}" method="post" enctype="multipart/form-data" class="client-image-upload">
+            <input type="file" name="images" accept="image/png,image/jpeg,image/gif,image/webp" multiple required>
+            <button type="submit" class="btn btn-green text-sm px-3 py-1.5">Subir Imagenes</button>
+        </form>
+    </div>
+
+    {% if client.images %}
+    <div class="client-image-gallery">
+        {% for image in client.images | sort(attribute='uploaded_at', reverse=true) %}
+        <div class="client-image-card">
+            <a href="{{ url_for('static', filename='uploads/client_images/' ~ image.filename) }}" target="_blank">
+                <img src="{{ url_for('static', filename='uploads/client_images/' ~ image.filename) }}" alt="Imagen de {{ client.first_name }} {{ client.last_name }}">
+            </a>
+            <div class="client-image-meta">
+                <span>{{ image.uploaded_at.strftime('%d/%m/%Y') }}</span>
+                <form action="{{ url_for('delete_client_image', client_id=client.id, image_id=image.id) }}" method="post" onsubmit="return confirm('Eliminar esta imagen?');">
+                    <button type="submit">Eliminar</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600 text-base">No hay imagenes cargadas para este cliente.</p>
+    {% endif %}
+</div>
+
 {% set selected_hair_types = selected_values(client.evaluation_hair_types) %}
 {% set selected_textures = selected_values(client.evaluation_textures) %}
 {% set selected_scalp_conditions = selected_values(client.evaluation_scalp_conditions) %}

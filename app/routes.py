@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, flash, jsonify, session
 from app import app, db
-from app.models import Product, Order, OrderItem, Client, Appointment, Service, UsedProduct
+from app.models import Product, Order, OrderItem, Client, ClientImage, Appointment, Service, UsedProduct
 from app.google_calendar import (
     build_google_flow,
     delete_appointment_from_google,
@@ -12,8 +12,10 @@ from app.google_calendar import (
 )
 from datetime import datetime, date, timedelta, timezone
 from sqlalchemy import func, extract
+from werkzeug.utils import secure_filename
 import locale
 import os
+from uuid import uuid4
 
 
 CLIENT_EVALUATION_OPTIONS = {
@@ -22,6 +24,26 @@ CLIENT_EVALUATION_OPTIONS = {
     'scalp_conditions': ['Nada', 'Poco', 'Muy'],
     'scalp_properties': ['Seborrea', 'Pitiriasis', 'Alopecia', 'Pediculosis'],
 }
+
+ALLOWED_CLIENT_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+
+def _client_images_dir():
+    upload_dir = os.path.join(app.static_folder, 'uploads', 'client_images')
+    os.makedirs(upload_dir, exist_ok=True)
+    return upload_dir
+
+
+def _allowed_client_image(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_CLIENT_IMAGE_EXTENSIONS
+
+
+def _delete_client_image_file(filename):
+    if not filename:
+        return
+    image_path = os.path.join(_client_images_dir(), filename)
+    if os.path.exists(image_path):
+        os.remove(image_path)
 
 
 def _serialize_selected(values):
@@ -423,6 +445,8 @@ def delete_client(client_id):
     """
     client = Client.query.get_or_404(client_id)
     try:
+        for image in client.images:
+            _delete_client_image_file(image.filename)
         db.session.delete(client)
         db.session.commit()
         flash('Cliente eliminado exitosamente!', 'success')
@@ -443,6 +467,74 @@ def client_detail(client_id):
                            title=f'Detalle de {client.first_name} {client.last_name}',
                            evaluation_options=CLIENT_EVALUATION_OPTIONS,
                            selected_values=_selected_values)
+
+
+@app.route('/clients/<int:client_id>/images/add', methods=['POST'])
+def add_client_image(client_id):
+    """
+    Permite subir una o varias imagenes para un cliente.
+    """
+    client = Client.query.get_or_404(client_id)
+    files = request.files.getlist('images')
+    saved_count = 0
+
+    try:
+        for image_file in files:
+            if not image_file or not image_file.filename:
+                continue
+
+            if not _allowed_client_image(image_file.filename):
+                flash(f'Formato no permitido para "{image_file.filename}". Usa PNG, JPG, JPEG, GIF o WEBP.', 'danger')
+                continue
+
+            original_filename = secure_filename(image_file.filename)
+            extension = original_filename.rsplit('.', 1)[1].lower()
+            filename = f'client_{client.id}_{uuid4().hex}.{extension}'
+            image_file.save(os.path.join(_client_images_dir(), filename))
+
+            client_image = ClientImage(
+                client_id=client.id,
+                filename=filename,
+                original_filename=original_filename
+            )
+            db.session.add(client_image)
+            saved_count += 1
+
+        if saved_count:
+            db.session.commit()
+            flash(f'{saved_count} imagen(es) subida(s) correctamente.', 'success')
+        else:
+            db.session.rollback()
+            flash('No se seleccionaron imagenes validas para subir.', 'danger')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al subir imagenes: {e}', 'danger')
+
+    return redirect(url_for('client_detail', client_id=client.id))
+
+
+@app.route('/clients/<int:client_id>/images/delete/<int:image_id>', methods=['POST'])
+def delete_client_image(client_id, image_id):
+    """
+    Elimina una imagen asociada a un cliente.
+    """
+    client = Client.query.get_or_404(client_id)
+    image = ClientImage.query.get_or_404(image_id)
+
+    if image.client_id != client.id:
+        flash('Imagen no encontrada para este cliente.', 'danger')
+        return redirect(url_for('client_detail', client_id=client.id))
+
+    try:
+        _delete_client_image_file(image.filename)
+        db.session.delete(image)
+        db.session.commit()
+        flash('Imagen eliminada correctamente.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar imagen: {e}', 'danger')
+
+    return redirect(url_for('client_detail', client_id=client.id))
 
 # --- Rutas de Gestión de Turnos (Appointments) ---
 

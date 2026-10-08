@@ -546,6 +546,47 @@ function closeAddAppointmentModal() {
 
 // --- Event Listeners y Inicialización ---
 
+document.addEventListener('DOMContentLoaded', () => {
+    const tabs = Array.from(document.querySelectorAll('[data-client-tab]'));
+    if (!tabs.length) return;
+    const panels = document.querySelectorAll('[data-client-panel]');
+    const nav = document.querySelector('.client-tabs');
+    nav.setAttribute('role', 'tablist');
+    tabs.forEach(tab => {
+        tab.id = `tab-${tab.dataset.clientTab}`;
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-controls', tab.dataset.clientTab);
+    });
+    panels.forEach(panel => {
+        panel.setAttribute('role', 'tabpanel');
+        panel.setAttribute('aria-labelledby', `tab-${panel.dataset.clientPanel}`);
+        panel.tabIndex = 0;
+    });
+    function activate() {
+        const requested = window.location.hash.slice(1);
+        const name = tabs.some(tab => tab.dataset.clientTab === requested) ? requested : 'datos';
+        tabs.forEach(tab => {
+            const active = tab.dataset.clientTab === name;
+            tab.setAttribute('aria-selected', String(active));
+            tab.tabIndex = active ? 0 : -1;
+        });
+        panels.forEach(panel => { panel.hidden = panel.dataset.clientPanel !== name; });
+    }
+    tabs.forEach((tab, index) => tab.addEventListener('keydown', event => {
+        let next = index;
+        if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+        else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = tabs.length - 1;
+        else return;
+        event.preventDefault();
+        tabs[next].focus();
+        tabs[next].click();
+    }));
+    window.addEventListener('hashchange', activate);
+    activate();
+});
+
 document.addEventListener('DOMContentLoaded', async function() {
     // Lógica para el calendario solo si estamos en la página del calendario
     if (document.getElementById('currentMonthYear')) {

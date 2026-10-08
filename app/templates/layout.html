@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Peluquería App - {{ title | default('Inicio') }}</title>
+    <title>Peluqueria App - {{ title | default('Inicio') }}</title>
     <!-- Incluir Tailwind CSS desde CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <style>
         body {
@@ -157,33 +157,35 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
-    <nav class="bg-gradient-to-r from-purple-600 to-blue-600 p-4 shadow-lg">
-        <div class="container mx-auto flex justify-between items-center">
-            <a href="{{ url_for('index') }}" class="text-white text-3xl font-extrabold tracking-tight">
-                Peluquería App
+<body class="app-body min-h-screen flex flex-col">
+    <nav class="app-navbar">
+        <div class="app-nav-container container mx-auto">
+            <a href="{{ url_for('index') }}" class="app-brand">
+                <span class="app-brand-mark">P</span>
+                <span>Peluqueria App</span>
             </a>
-            <div class="space-x-4">
-                <a href="{{ url_for('products') }}" class="text-white hover:text-blue-200 transition duration-200 ease-in-out text-lg font-medium">
+            <div class="app-nav-links">
+                <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}is-active{% endif %}">Inicio</a>
+                <a href="{{ url_for('products') }}" class="{% if request.endpoint in ['products', 'add_product', 'edit_product'] %}is-active{% endif %}">
                     Productos
                 </a>
-                <a href="{{ url_for('orders') }}" class="text-white hover:text-blue-200 transition duration-200 ease-in-out text-lg font-medium">
+                <a href="{{ url_for('orders') }}" class="{% if request.endpoint in ['orders', 'add_order'] %}is-active{% endif %}">
                     Pedidos
                 </a>
-                <a href="{{ url_for('clients') }}" class="text-white hover:text-blue-200 transition duration-200 ease-in-out text-lg font-medium">
+                <a href="{{ url_for('clients') }}" class="{% if request.endpoint in ['clients', 'add_client', 'edit_client', 'client_detail', 'client_stats'] %}is-active{% endif %}">
                     Clientes
                 </a>
-                <a href="{{ url_for('appointments_calendar') }}" class="text-white hover:text-blue-200 transition duration-200 ease-in-out text-lg font-medium">
+                <a href="{{ url_for('appointments_calendar') }}" class="{% if request.endpoint in ['appointments_calendar', 'add_appointment', 'edit_appointment'] %}is-active{% endif %}">
                     Calendario
                 </a>
-                <a href="{{ url_for('reports') }}" class="text-white hover:text-blue-200 transition duration-200 ease-in-out text-lg font-medium">
+                <a href="{{ url_for('reports') }}" class="{% if request.endpoint == 'reports' %}is-active{% endif %}">
                     Reportes
                 </a>
             </div>
         </div>
     </nav>
 
-    <main class="container mx-auto mt-8 p-4 flex-grow">
+    <main class="app-main container mx-auto flex-grow">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <!-- Se agregó la clase 'flash-messages-container' para depuración -->
@@ -201,9 +203,9 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="bg-gray-800 text-white p-6 mt-8">
+    <footer class="app-footer">
         <div class="container mx-auto text-center">
-            <p>&copy; {{ current_year }} Peluquería App. Todos los derechos reservados.</p>
+            <p>&copy; {{ current_year }} Peluqueria App. Todos los derechos reservados.</p>
         </div>
     </footer>
 

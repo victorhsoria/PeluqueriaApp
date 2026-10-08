@@ -1,9 +1,19 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Detalle del Cliente</h1>
+<div class="workspace-heading">
+    <div><a href="{{ url_for('clients') }}" class="back-link">Clientes</a><h1>{{ client.first_name }} {{ client.last_name }}</h1></div>
+    <a href="{{ url_for('edit_client', client_id=client.id) }}" class="dashboard-button">Editar cliente</a>
+</div>
+<nav class="client-tabs" aria-label="Ficha del cliente">
+    <a href="#datos" data-client-tab="datos">Datos</a>
+    <a href="#evaluacion" data-client-tab="evaluacion">Evaluaci&oacute;n</a>
+    <a href="#formulas" data-client-tab="formulas">F&oacute;rmulas</a>
+    <a href="#fotos" data-client-tab="fotos">Fotos</a>
+    <a href="#historial" data-client-tab="historial">Historial</a>
+</nav>
 
-<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl mb-8">
+<div id="datos" data-client-panel="datos" class="client-section">
     <h2 class="text-3xl font-semibold mb-6 text-gray-800">{{ client.first_name }} {{ client.last_name }}</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-lg mb-6">
         <div>
@@ -22,11 +32,10 @@
     </div>
 </div>
 
-<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl mb-8">
+<div id="fotos" data-client-panel="fotos" class="client-section">
     <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-6">
         <div>
             <h2 class="text-2xl font-semibold text-gray-800">Imagenes del cliente</h2>
-            <p class="text-sm text-gray-600 mt-1">Subi fotos del cabello, trabajos realizados o referencias.</p>
         </div>
         <form action="{{ url_for('add_client_image', client_id=client.id) }}" method="post" enctype="multipart/form-data" class="client-image-upload">
             <input type="file" name="images" accept="image/png,image/jpeg,image/gif,image/webp" multiple required>
@@ -60,7 +69,7 @@
 {% set selected_scalp_conditions = selected_values(client.evaluation_scalp_conditions) %}
 {% set selected_scalp_properties = selected_values(client.evaluation_scalp_properties) %}
 
-<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl mb-8">
+<div id="evaluacion" data-client-panel="evaluacion" class="client-section">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-semibold text-gray-800">Evaluacion del cliente</h2>
         <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn bg-yellow-500 hover:bg-yellow-600 text-sm px-3 py-1.5">
@@ -68,7 +77,7 @@
         </a>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div>
         <div class="space-y-5">
             <div>
                 <h3 class="text-lg font-semibold text-gray-700 mb-3">Tipo de cabello</h3>
@@ -167,7 +176,16 @@
             </div>
         </div>
 
-        <div>
+    </div>
+    {% if client.evaluation_notes %}
+    <div class="mt-6">
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">Observaciones</h3>
+        <p class="text-gray-800 whitespace-pre-line">{{ client.evaluation_notes }}</p>
+    </div>
+    {% endif %}
+</div>
+<div id="formulas" data-client-panel="formulas" class="client-section">
+        <div class="client-formulas">
             <h3 class="text-lg font-semibold text-gray-700 mb-3">Formulacion</h3>
             <div class="formula-board formula-readonly">
                 <div class="formula-heading">Tiene</div>
@@ -208,17 +226,9 @@
                 {% endfor %}
             </div>
         </div>
-    </div>
-
-    {% if client.evaluation_notes %}
-    <div class="mt-6">
-        <h3 class="text-lg font-semibold text-gray-700 mb-2">Observaciones</h3>
-        <p class="text-gray-800 whitespace-pre-line">{{ client.evaluation_notes }}</p>
-    </div>
-    {% endif %}
 </div>
 
-<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl mb-8">
+<div id="historial" data-client-panel="historial" class="client-section">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-semibold text-gray-800">Turnos</h2>
         <a href="{{ url_for('add_appointment', client_id=client.id) }}" class="btn btn-green text-sm px-3 py-1.5">
@@ -260,7 +270,7 @@
     {% endif %}
 </div>
 
-<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl">
+<div data-client-panel="historial" class="client-section">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-semibold text-gray-800">Trabajos Realizados</h2>
         <a href="{{ url_for('add_service', client_id=client.id) }}" class="btn btn-green text-sm px-3 py-1.5">

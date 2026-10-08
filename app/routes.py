@@ -56,6 +56,25 @@ def _selected_values(value):
     return [item for item in value.split(',') if item]
 
 
+def _appointment_minutes():
+    try:
+        return max(1, int(os.environ.get('GOOGLE_CALENDAR_EVENT_MINUTES', '60')))
+    except ValueError:
+        return 60
+
+
+def _appointment_conflict(proposed_time, exclude_id=None):
+    # Use the same fixed duration as Google Calendar until services have durations.
+    duration = timedelta(minutes=_appointment_minutes())
+    query = Appointment.query.filter(
+        Appointment.date_time > proposed_time - duration,
+        Appointment.date_time < proposed_time + duration,
+    )
+    if exclude_id is not None:
+        query = query.filter(Appointment.id != exclude_id)
+    return query.first() is not None
+
+
 def _apply_client_form_data(client):
     client.first_name = request.form['first_name']
     client.last_name = request.form['last_name']
@@ -89,7 +108,7 @@ def _apply_client_form_data(client):
 @app.route('/')
 def index():
     """
-    Ruta principal, redirige a la página de productos.
+    Panel de la jornada de trabajo.
     """
     today = date.today()
 
@@ -586,6 +605,9 @@ def add_appointment(client_id=None): # <--- CORRECCIÓN CLAVE AQUÍ: client_id e
         description = request.form['description']
         try:
             date_time_obj = datetime.strptime(date_time_str, '%Y-%m-%dT%H:%M')
+            if _appointment_conflict(date_time_obj):
+                flash('Ya hay un turno en ese horario. Selecciona otro horario.', 'danger')
+                return redirect(url_for('add_appointment', client_id=client.id, date=date_time_obj.strftime('%Y-%m-%d'), time=date_time_obj.strftime('%H:%M')))
             
             new_appointment = Appointment(client_id=client.id, date_time=date_time_obj, description=description)
             db.session.add(new_appointment)
@@ -635,7 +657,11 @@ def edit_appointment(client_id, appointment_id):
 
     if request.method == 'POST':
         try:
-            appointment.date_time = datetime.strptime(request.form['date_time'], '%Y-%m-%dT%H:%M')
+            proposed_time = datetime.strptime(request.form['date_time'], '%Y-%m-%dT%H:%M')
+            if _appointment_conflict(proposed_time, appointment.id):
+                flash('Ya hay un turno en ese horario. Selecciona otro horario.', 'danger')
+                return redirect(url_for('edit_appointment', client_id=client.id, appointment_id=appointment.id))
+            appointment.date_time = proposed_time
             appointment.description = request.form['description']
             if google_calendar_connected():
                 try:
@@ -992,13 +1018,45 @@ def api_appointments():
             'id': appt_id,
             'title': f"{client_first_name} {client_last_name}: {description}",
             'start': date_time.isoformat(),
+            'end': (date_time + timedelta(minutes=_appointment_minutes())).isoformat(),
             'date': date_time.strftime('%Y-%m-%d'),
             'time': date_time.strftime('%H:%M'),
             'client_id': client_id,
             'client_name': f"{client_first_name} {client_last_name}",
-            'description': description
+            'description': description,
+            'url': url_for('edit_appointment', client_id=client_id, appointment_id=appt_id),
+            'reschedule_url': url_for('reschedule_appointment', appointment_id=appt_id),
         })
     return jsonify(appointments_data)
+
+
+@app.route('/api/appointments/<int:appointment_id>/reschedule', methods=['POST'])
+def reschedule_appointment(appointment_id):
+    appointment = db.get_or_404(Appointment, appointment_id)
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error='Datos de turno invalidos.'), 400
+    try:
+        proposed_time = datetime.strptime(data.get('date_time', ''), '%Y-%m-%dT%H:%M')
+    except (ValueError, TypeError):
+        return jsonify(error='Fecha u hora invalida.'), 400
+    if _appointment_conflict(proposed_time, appointment.id):
+        return jsonify(error='Ya hay un turno en ese horario.'), 409
+    appointment.date_time = proposed_time
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify(error='No se pudo guardar el nuevo horario.'), 500
+    warning = None
+    if google_calendar_connected():
+        try:
+            appointment.google_event_id = sync_appointment_to_google(appointment)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            warning = 'Turno reprogramado. No se pudo sincronizar con Google Calendar.'
+    return jsonify(success=True, warning=warning)
 
 # --- Ruta para Reportes ---
 @app.route('/reports')

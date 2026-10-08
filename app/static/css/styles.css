@@ -6,6 +6,78 @@
     transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
 }
 
+/* Shared workspace surfaces and accessible navigation. */
+.app-body.app-body { --app-paper: #f4f6f8; --app-muted: #4d5c58; --app-gold: #8a601c; --app-shadow: 0 2px 8px rgba(20, 35, 30, 0.04); background: #f4f6f8; }
+.app-main { max-width: 1440px; }
+.app-body .app-main > h1 { font-size: 28px; line-height: 1.3; text-align: left; }
+.app-body .app-main th, .app-body [class*="eyebrow"] { letter-spacing: 0; }
+.app-body .app-main input, .app-body .app-main select, .app-body .app-main textarea { border-color: #87978f; }
+.app-body .app-nav-links a { border-radius: 6px; color: #44554e; font-weight: 600; }
+.app-body .app-nav-links a.is-active { color: #07483d; border-bottom: 2px solid #12695b; }
+.app-body a:focus-visible, .app-body button:focus-visible { outline: 3px solid #12695b; outline-offset: 3px; }
+.app-body .dashboard-page, .app-body .orders-page { background: transparent; padding: 0; }
+.app-body .dashboard-hero { grid-template-columns: minmax(0, 1fr) 240px; min-height: 0; padding-bottom: 24px; border-bottom: 1px solid #ccd5d1; }
+.app-body .dashboard-hero h1 { font-size: 30px; line-height: 1.25; }
+.app-body .dashboard-hero-image { height: 150px; box-shadow: none; }
+.app-body .dashboard-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.app-body .dashboard-summary strong { font-size: 28px; }
+.app-body .dashboard-panel { box-shadow: none; background: white; border-radius: 0; border: 0; border-top: 2px solid #c5d1ca; }
+.app-body .dashboard-list { max-height: none; }
+.app-body .orders-topbar h1 { font-size: 28px; line-height: 1.3; }
+.app-body .orders-summary strong { font-size: 24px; }
+.app-body .orders-panel { box-shadow: none; }
+.app-body .orders-panel h2 { font-size: 20px; }
+.app-body .orders-eyebrow, .app-body .orders-table th { letter-spacing: 0; }
+.workspace-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+.workspace-heading h1 { font-size: 28px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.app-body .dashboard-button { background: var(--app-accent); color: white; }
+.app-body .dashboard-button:hover { background: var(--app-accent-strong); }
+.app-body .dashboard-ghost, .app-body .dashboard-small-link { background: #e7efeb; color: #0b4f44; }
+.app-body .btn { display: inline-flex; align-items: center; justify-content: center; color: white; padding: 10px 16px; min-height: 40px; font-size: 14px; font-weight: 600; }
+.app-body .workspace-heading .dashboard-eyebrow { color: #96324f; }
+.back-link { color: #12695b; font-size: 14px; }
+.client-tabs { display: flex; gap: 24px; overflow-x: auto; border-bottom: 1px solid #aebcb5; margin-bottom: 24px; }
+.client-tabs a { white-space: nowrap; color: #4d5c58; padding: 12px 2px; border-bottom: 3px solid transparent; font-weight: 600; }
+.client-tabs a[aria-selected="true"] { color: #0b4f44; border-color: #12695b; }
+.client-section { padding: 12px 0 28px; border-bottom: 1px solid #ccd5d1; margin-bottom: 20px; }
+.client-section[hidden], [hidden] { display: none !important; }
+.client-section h2 { font-size: 22px; }
+.client-formulas { max-width: 680px; margin: auto; }
+.calendar-connection { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 0; border-top: 1px solid #ccd5d1; border-bottom: 1px solid #ccd5d1; margin-bottom: 24px; }
+.calendar-connection span { color: #4d5c58; margin-left: 12px; }
+.calendar-connection-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.calendar-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; align-items: start; }
+.calendar-surface { min-width: 0; background: white; padding: 16px; border: 1px solid #ccd5d1; border-radius: 6px; }
+.calendar-day-agenda h2 { font-size: 20px; font-weight: 700; }
+#agenda-date { color: #4d5c58; font-size: 14px; margin: 8px 0 16px; }
+.calendar-day-agenda .dashboard-list-item { grid-template-columns: 48px minmax(0, 1fr); padding: 14px 0; }
+.calendar-day-agenda strong, .calendar-day-agenda span { display: block; overflow-wrap: anywhere; }
+.calendar-day-agenda span { font-size: 14px; color: #4d5c58; }
+.calendar-error { color: #96223c; padding: 16px; }
+.calendar-error a { text-decoration: underline; }
+.fc { --fc-border-color: #d4ddd8; --fc-button-bg-color: #12695b; --fc-button-border-color: #12695b; --fc-button-hover-bg-color: #0b4f44; --fc-button-hover-border-color: #0b4f44; --fc-button-active-bg-color: #083f36; --fc-button-active-border-color: #083f36; --fc-event-bg-color: #12695b; --fc-event-border-color: #12695b; --fc-today-bg-color: #edf6f1; }
+.app-body .fc .fc-toolbar-title { font-size: 20px; font-weight: 600; }
+.app-body .fc th { text-transform: none; font-size: 13px; letter-spacing: 0; }
+.app-body .fc table { border: 0; box-shadow: none; }
+.app-body .fc tbody tr:hover { background: transparent; }
+.fc .fc-button { font-size: 14px; min-height: 40px; }
+@media (max-width: 1100px) { .calendar-workspace { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+    .workspace-heading { align-items: flex-start; flex-direction: column; }
+    .workspace-heading h1, .app-body .dashboard-hero h1 { font-size: 26px; }
+    .app-body .dashboard-hero { grid-template-columns: minmax(0, 1fr); }
+    .app-body .dashboard-hero-image { height: 120px; }
+    .app-body .dashboard-summary { gap: 8px; }
+    .app-body .dashboard-summary a { padding: 12px 8px; }
+    .app-body .dashboard-summary strong { font-size: 24px; }
+    .client-tabs { gap: 20px; }
+    .client-section .flex { flex-wrap: wrap; gap: 12px; }
+    .calendar-surface { padding: 10px; }
+    .fc .fc-toolbar { flex-wrap: wrap; gap: 12px; }
+    .fc .fc-toolbar-chunk:nth-child(2) { order: -1; width: 100%; }
+    .app-body .app-nav-container { align-items: flex-start; }
+}
+
 .btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -14,6 +86,216 @@
 /* Estilos para el campo de entrada de archivo personalizado si decides usarlo */
 input[type="file"] {
     cursor: pointer;
+}
+
+.app-body {
+    --app-ink: #17211d;
+    --app-muted: #66736e;
+    --app-line: #dfe5df;
+    --app-paper: #f7f3ed;
+    --app-panel: rgba(255, 255, 255, 0.9);
+    --app-accent: #12695b;
+    --app-accent-strong: #0b4f44;
+    --app-rose: #a23d59;
+    --app-gold: #b98948;
+    --app-danger: #b8324d;
+    --app-shadow: 0 18px 48px rgba(31, 38, 35, 0.1);
+    background:
+        radial-gradient(circle at top left, rgba(18, 105, 91, 0.12), transparent 32rem),
+        radial-gradient(circle at top right, rgba(185, 137, 72, 0.13), transparent 30rem),
+        var(--app-paper);
+    color: var(--app-ink);
+}
+
+.app-navbar {
+    background: rgba(255, 255, 255, 0.86);
+    border-bottom: 1px solid rgba(223, 229, 223, 0.9);
+    box-shadow: 0 10px 34px rgba(31, 38, 35, 0.08);
+    padding: 0.85rem 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+}
+
+.app-nav-container {
+    align-items: center;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+}
+
+.app-brand {
+    align-items: center;
+    color: var(--app-ink);
+    display: inline-flex;
+    font-size: 1.35rem;
+    font-weight: 800;
+    gap: 0.7rem;
+    text-decoration: none;
+}
+
+.app-brand:hover {
+    color: var(--app-accent-strong);
+}
+
+.app-brand-mark {
+    align-items: center;
+    background: linear-gradient(135deg, var(--app-accent), var(--app-rose));
+    border-radius: 999px;
+    color: #ffffff;
+    display: inline-flex;
+    font-family: "Playfair Display", serif;
+    font-size: 1.15rem;
+    height: 2.4rem;
+    justify-content: center;
+    width: 2.4rem;
+}
+
+.app-nav-links {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: flex-end;
+}
+
+.app-nav-links a {
+    border-radius: 999px;
+    color: var(--app-muted);
+    font-size: 0.95rem;
+    font-weight: 800;
+    padding: 0.62rem 0.9rem;
+    text-decoration: none;
+    transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.app-nav-links a:hover,
+.app-nav-links a.is-active {
+    background: #eaf3ef;
+    color: var(--app-accent-strong);
+}
+
+.app-nav-links a:hover {
+    transform: translateY(-1px);
+}
+
+.app-main {
+    padding: 2rem 1rem;
+    width: 100%;
+}
+
+.app-footer {
+    background: #17211d;
+    color: rgba(255, 255, 255, 0.78);
+    margin-top: 2rem;
+    padding: 1.4rem 1rem;
+}
+
+.app-main > h1 {
+    color: var(--app-ink);
+    font-size: clamp(2rem, 4vw, 3.6rem);
+    font-weight: 800;
+    letter-spacing: 0;
+    line-height: 0.98;
+    margin-bottom: 1.5rem;
+}
+
+.app-main .bg-white {
+    background: var(--app-panel);
+    border: 1px solid rgba(223, 229, 223, 0.94);
+    box-shadow: var(--app-shadow);
+}
+
+.app-main .shadow-xl,
+.app-main .shadow-lg {
+    box-shadow: var(--app-shadow);
+}
+
+.app-main .rounded-lg {
+    border-radius: 8px;
+}
+
+.app-main table {
+    color: var(--app-ink);
+}
+
+.app-main thead.bg-gray-100,
+.app-main .table-auto thead {
+    background: #f2f6f3;
+}
+
+.app-main th {
+    color: var(--app-muted);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.app-main td {
+    border-color: var(--app-line);
+}
+
+.app-main tbody tr:hover {
+    background: #f8fbf8;
+}
+
+.app-main input[type="text"],
+.app-main input[type="number"],
+.app-main input[type="date"],
+.app-main input[type="datetime-local"],
+.app-main select,
+.app-main textarea {
+    background: #ffffff;
+    border: 1px solid #cfd8d1;
+    border-radius: 8px;
+    color: var(--app-ink);
+    min-height: 2.55rem;
+}
+
+.app-main input:focus,
+.app-main select:focus,
+.app-main textarea:focus {
+    border-color: var(--app-accent);
+    box-shadow: 0 0 0 3px rgba(18, 105, 91, 0.15);
+    outline: 0;
+}
+
+.btn,
+button[type="submit"] {
+    border-radius: 8px;
+    font-weight: 800;
+}
+
+.btn,
+.bg-blue-500,
+.bg-blue-600 {
+    background-color: var(--app-accent) !important;
+}
+
+.btn:hover,
+.hover\:bg-blue-600:hover,
+.hover\:bg-blue-700:hover {
+    background-color: var(--app-accent-strong) !important;
+}
+
+.btn-green,
+.bg-green-600 {
+    background-color: var(--app-accent) !important;
+}
+
+.btn-red,
+.bg-red-500,
+.bg-red-600 {
+    background-color: var(--app-danger) !important;
+}
+
+.bg-yellow-500 {
+    background-color: var(--app-gold) !important;
+}
+
+.flash-message {
+    border-radius: 8px;
+    box-shadow: var(--app-shadow);
 }
 
 .client-image-upload {
@@ -99,9 +381,10 @@ input[type="file"] {
 .dashboard-hero {
     align-items: center;
     display: grid;
-    gap: 18px;
-    grid-template-columns: 1fr auto;
+    gap: 22px;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 42%);
     margin-bottom: 18px;
+    min-height: 18rem;
 }
 
 .dashboard-hero h1 {
@@ -114,6 +397,22 @@ input[type="file"] {
     color: var(--dashboard-muted);
     margin: 10px 0 0;
     max-width: 58rem;
+}
+
+.dashboard-hero-copy {
+    min-width: 0;
+}
+
+.dashboard-hero-image {
+    aspect-ratio: 16 / 10;
+    border-radius: 8px;
+    box-shadow: var(--dashboard-shadow);
+    display: block;
+    height: 100%;
+    max-height: 22rem;
+    object-fit: cover;
+    object-position: center;
+    width: 100%;
 }
 
 .dashboard-eyebrow {
@@ -129,7 +428,8 @@ input[type="file"] {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    justify-content: flex-end;
+    justify-content: flex-start;
+    margin-top: 20px;
 }
 
 .dashboard-button,
@@ -317,9 +617,32 @@ input[type="file"] {
 }
 
 @media (max-width: 900px) {
+    .app-nav-container {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .app-nav-links {
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: 0.1rem;
+    }
+
+    .app-nav-links a {
+        white-space: nowrap;
+    }
+
     .dashboard-hero,
     .dashboard-grid {
         grid-template-columns: 1fr;
+    }
+
+    .dashboard-hero {
+        min-height: 0;
+    }
+
+    .dashboard-hero-image {
+        max-height: 18rem;
     }
 
     .dashboard-actions,
@@ -338,6 +661,23 @@ input[type="file"] {
 }
 
 @media (max-width: 640px) {
+    .app-navbar {
+        padding: 0.75rem;
+    }
+
+    .app-main {
+        padding: 1rem 0.75rem;
+    }
+
+    .app-brand {
+        font-size: 1.1rem;
+    }
+
+    .app-brand-mark {
+        height: 2.1rem;
+        width: 2.1rem;
+    }
+
     .dashboard-page {
         padding: 14px;
     }

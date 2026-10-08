@@ -3,18 +3,27 @@
 {% block content %}
 <div class="dashboard-page">
     <section class="dashboard-hero">
-        <div>
+        <div class="dashboard-hero-copy">
             <p class="dashboard-eyebrow">Panel del dia</p>
-            <h1>Inicio</h1>
-            <p>Hoy es {{ today_formatted }}. Aca tenes lo importante para arrancar la jornada.</p>
+            <h1>Tu peluquer&iacute;a, hoy</h1>
+            <p>{{ today_formatted }}</p>
+            <div class="dashboard-actions">
+                <a href="{{ url_for('add_appointment') }}" class="dashboard-button">+ Nuevo turno</a>
+                <a href="{{ url_for('add_client') }}" class="dashboard-ghost">Nuevo cliente</a>
+            </div>
         </div>
-        <div class="dashboard-actions">
-            <a href="{{ url_for('add_client') }}" class="dashboard-button">+ Agregar Cliente</a>
-            <a href="{{ url_for('appointments_calendar') }}" class="dashboard-ghost">Ver Calendario</a>
-        </div>
+        <img
+            class="dashboard-hero-image"
+            src="{{ url_for('static', filename='img/dashboard-salon-woman.png') }}"
+            alt="Mujer en una peluqueria"
+        >
     </section>
 
     <section class="dashboard-summary" aria-label="Resumen general">
+        <a href="{{ url_for('appointments_calendar') }}">
+            <span>Turnos de hoy</span>
+            <strong>{{ appointment_count }}</strong>
+        </a>
         <a href="{{ url_for('clients') }}">
             <span>Clientes</span>
             <strong>{{ client_count }}</strong>
@@ -22,14 +31,6 @@
         <a href="{{ url_for('products') }}">
             <span>Productos</span>
             <strong>{{ product_count }}</strong>
-        </a>
-        <a href="{{ url_for('appointments_calendar') }}">
-            <span>Turnos de hoy</span>
-            <strong>{{ appointment_count }}</strong>
-        </a>
-        <a href="{{ url_for('products') }}">
-            <span>Stock bajo</span>
-            <strong>{{ low_stock_count }}</strong>
         </a>
     </section>
 

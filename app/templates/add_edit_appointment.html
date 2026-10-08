@@ -5,10 +5,21 @@
 
 <div class="max-w-xl mx-auto bg-white p-8 rounded-lg shadow-xl">
     <form method="POST">
+        {% if clients_for_dropdown is defined %}
+        <div class="mb-5">
+            <label for="client_id" class="block text-gray-700 text-sm font-bold mb-2">Cliente:</label>
+            <select id="client_id" name="client_id" required class="w-full py-2 px-3">
+                <option value="">Seleccionar cliente</option>
+                {% for option in clients_for_dropdown %}
+                <option value="{{ option.id }}" {% if client and client.id == option.id %}selected{% endif %}>{{ option.first_name }} {{ option.last_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
         <div class="mb-5">
             <label for="date_time" class="block text-gray-700 text-sm font-bold mb-2">Fecha y Hora:</label>
             <input type="datetime-local" id="date_time" name="date_time" 
-                   value="{{ appointment.date_time.strftime('%Y-%m-%dT%H:%M') if appointment else '' }}" 
+                   value="{{ appointment.date_time.strftime('%Y-%m-%dT%H:%M') if appointment else ((prefill_date ~ 'T' ~ (prefill_time or '09:00')) if prefill_date else '') }}"
                    class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" 
                    required>
         </div>
@@ -22,7 +33,7 @@
             <button type="submit" class="btn bg-blue-600 hover:bg-blue-700">
                 {{ 'Actualizar Turno' if appointment else 'Agregar Turno' }}
             </button>
-            <a href="{{ url_for('client_detail', client_id=client.id) }}" class="btn bg-gray-500 hover:bg-gray-600">Cancelar</a>
+            <a href="{{ url_for('client_detail', client_id=client.id) if client else url_for('appointments_calendar') }}" class="dashboard-ghost">Cancelar</a>
         </div>
     </form>
 </div>

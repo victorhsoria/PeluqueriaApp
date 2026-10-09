@@ -1,6 +1,7 @@
 import json
 import os
-from datetime import timedelta
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from flask import current_app
 
@@ -122,6 +123,44 @@ def appointment_to_google_event(appointment):
             'timeZone': _timezone(),
         },
     }
+
+
+def google_event_start(event, appointment_time=None):
+    start = event.get('start', {})
+    if start.get('dateTime'):
+        value = datetime.fromisoformat(start['dateTime'].replace('Z', '+00:00'))
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=ZoneInfo(start.get('timeZone') or _timezone()))
+        return value.astimezone(ZoneInfo(_timezone())).replace(tzinfo=None)
+    day = datetime.strptime(start['date'], '%Y-%m-%d').date()
+    return datetime.combine(day, time.fromisoformat(appointment_time)) if appointment_time else None
+
+
+def list_google_events(start_date, end_date):
+    service = calendar_service()
+    if not service:
+        raise RuntimeError('Conecta Google Calendar nuevamente.')
+    zone = ZoneInfo(_timezone())
+    parameters = {
+        'calendarId': _calendar_id(),
+        'timeMin': datetime.combine(start_date, time.min, zone).isoformat(),
+        'timeMax': datetime.combine(end_date + timedelta(days=1), time.min, zone).isoformat(),
+        'singleEvents': True, 'orderBy': 'startTime', 'maxResults': 250,
+    }
+    events = []
+    while True:
+        page = service.events().list(**parameters).execute()
+        events.extend(event for event in page.get('items', []) if event.get('status') != 'cancelled')
+        if not page.get('nextPageToken'):
+            return events
+        parameters['pageToken'] = page['nextPageToken']
+
+
+def get_google_event(event_id):
+    service = calendar_service()
+    if not service:
+        raise RuntimeError('Conecta Google Calendar nuevamente.')
+    return service.events().get(calendarId=_calendar_id(), eventId=event_id).execute()
 
 
 def sync_appointment_to_google(appointment):

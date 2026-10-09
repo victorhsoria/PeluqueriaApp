@@ -7,6 +7,9 @@ from app.google_calendar import (
     delete_google_token,
     google_calendar_configured,
     google_calendar_connected,
+    google_event_start,
+    list_google_events,
+    get_google_event,
     save_credentials,
     sync_appointment_to_google,
 )
@@ -996,6 +999,82 @@ def google_calendar_sync():
     else:
         flash(f'Se sincronizaron {synced} turnos con Google Calendar.', 'success')
     return redirect(url_for('appointments_calendar'))
+
+@app.route('/google-calendar/import', methods=['GET', 'POST'])
+def google_calendar_import():
+    if not google_calendar_connected():
+        flash('Primero conecta Google Calendar.', 'danger')
+        return redirect(url_for('appointments_calendar'))
+    today = date.today()
+    values = request.form if request.method == 'POST' else request.args
+    try:
+        start_date = date.fromisoformat(values.get('from_date', today.replace(day=1).isoformat()))
+        end_date = date.fromisoformat(values.get('to_date', (today + timedelta(days=30)).isoformat()))
+        if end_date < start_date or (end_date - start_date).days > 366:
+            raise ValueError
+    except ValueError:
+        flash('Selecciona un periodo valido de hasta un a\u00f1o.', 'danger')
+        return redirect(url_for('google_calendar_import'))
+
+    if request.method == 'POST':
+        selected = list(dict.fromkeys(request.form.getlist('event_id')))
+        if not selected or len(selected) > 250:
+            flash('Selecciona entre 1 y 250 eventos.', 'warning')
+        else:
+            imported = 0
+            skipped = 0
+            for event_id in selected:
+                if Appointment.query.filter_by(google_event_id=event_id).first():
+                    skipped += 1
+                    continue
+                try:
+                    client_id = int(request.form.get(f'client_{event_id}', ''))
+                    if not db.session.get(Client, client_id):
+                        raise ValueError
+                    event = get_google_event(event_id)
+                    if event.get('status') == 'cancelled':
+                        raise ValueError
+                    start = google_event_start(event, request.form.get(f'time_{event_id}'))
+                    if not start or not start_date <= start.date() <= end_date:
+                        raise ValueError
+                    if _appointment_conflict(start):
+                        flash(f"Horario ocupado: {event.get('summary', 'Evento')}.", 'warning')
+                        skipped += 1
+                        continue
+                    db.session.add(Appointment(
+                        client_id=client_id, date_time=start,
+                        description=(event.get('summary') or 'Turno de Google Calendar')[:255],
+                        google_event_id=event_id,
+                    ))
+                    db.session.flush()
+                    imported += 1
+                except (ValueError, TypeError, KeyError):
+                    skipped += 1
+                    flash('Un evento no tiene cliente, fecha u hora validos.', 'warning')
+                except Exception:
+                    db.session.rollback()
+                    flash('No se pudo completar la importacion. Intenta nuevamente.', 'danger')
+                    return redirect(url_for('google_calendar_import', from_date=start_date, to_date=end_date))
+            db.session.commit()
+            flash(f'Se importaron {imported} turnos. Se omitieron {skipped} eventos ya vinculados o no validos.', 'success' if imported else 'warning')
+            return redirect(url_for('google_calendar_import', from_date=start_date, to_date=end_date))
+
+    events = []
+    try:
+        for event in list_google_events(start_date, end_date):
+            start = google_event_start(event)
+            events.append({
+                'id': event['id'], 'summary': event.get('summary') or 'Sin titulo',
+                'date': start.strftime('%d/%m/%Y') if start else event['start']['date'],
+                'time': start.strftime('%H:%M') if start else None,
+            })
+    except Exception:
+        flash('No se pudieron consultar los eventos de Google Calendar. Revisa la conexion.', 'danger')
+    linked = {appointment.google_event_id for appointment in Appointment.query.filter(Appointment.google_event_id.isnot(None)).all()}
+    return render_template('google_calendar_import.html', title='Importar desde Google',
+                           events=events, linked=linked, start_date=start_date, end_date=end_date,
+                           clients=Client.query.order_by(Client.first_name, Client.last_name).all())
+
 
 @app.route('/api/appointments')
 def api_appointments():

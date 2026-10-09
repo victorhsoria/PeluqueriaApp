@@ -46,6 +46,12 @@
 .calendar-connection { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 0; border-top: 1px solid #ccd5d1; border-bottom: 1px solid #ccd5d1; margin-bottom: 24px; }
 .calendar-connection span { color: #4d5c58; margin-left: 12px; }
 .calendar-connection-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.google-import-list { margin-bottom: 20px; }
+.google-import-row { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; padding: 16px 0; border-bottom: 1px solid #ccd5d1; }
+.google-import-event { display: flex; align-items: center; gap: 12px; flex: 1 1 280px; min-width: 0; overflow-wrap: anywhere; }
+.google-import-row label:not(.google-import-event) { display: grid; gap: 6px; max-width: 100%; }
+.google-import-row select, .google-import-row input[type=time], .calendar-connection input[type=date] { padding: 9px; border: 1px solid #687b74; border-radius: 4px; background: white; color: #172b27; max-width: 100%; }
+.google-import-row select { width: 260px; }
 .calendar-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; align-items: start; }
 .calendar-surface { min-width: 0; background: white; padding: 16px; border: 1px solid #ccd5d1; border-radius: 6px; }
 .calendar-day-agenda h2 { font-size: 20px; font-weight: 700; }

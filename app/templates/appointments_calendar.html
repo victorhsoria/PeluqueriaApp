@@ -10,6 +10,7 @@
     </div>
     <div class="calendar-connection-actions">
         {% if google_calendar_connected %}
+        <a href="{{ url_for('google_calendar_import') }}" class="dashboard-ghost">Importar desde Google</a>
         <form action="{{ url_for('google_calendar_sync') }}" method="post"><button type="submit" class="dashboard-button">Sincronizar turnos</button></form>
         <form action="{{ url_for('google_calendar_disconnect') }}" method="post" onsubmit="return confirm('Desconectar Google Calendar?');"><button type="submit" class="dashboard-ghost">Desconectar</button></form>
         {% elif google_calendar_configured %}

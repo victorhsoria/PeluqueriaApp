@@ -78,6 +78,41 @@ class WorkspaceTests(unittest.TestCase):
         self.browser.post(f'/clients/{self.client.id}/appointments/edit/{other.id}', data={'date_time': '2026-10-08T10:30', 'description': 'Color'})
         self.assertEqual(db.session.get(Appointment, other.id).date_time.hour, 12)
 
+    def test_google_import_review_and_duplicate_prevention(self):
+        event = {'id': 'google-1', 'summary': 'Eli weber', 'start': {'dateTime': '2026-10-09T17:00:00Z'}}
+        with patch('app.routes.google_calendar_connected', return_value=True), patch('app.routes.list_google_events', return_value=[event]), patch('app.routes.get_google_event', return_value=event):
+            response = self.browser.get('/google-calendar/import?from_date=2026-10-01&to_date=2026-10-31')
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b'Eli weber', response.data)
+            self.assertIn(b'Ana Perez', response.data)
+            data = {'from_date': '2026-10-01', 'to_date': '2026-10-31', 'event_id': 'google-1', 'client_google-1': str(self.client.id)}
+            self.browser.post('/google-calendar/import', data=data)
+            self.browser.post('/google-calendar/import', data=data)
+            turn = Appointment.query.filter_by(google_event_id='google-1').one()
+            self.assertEqual(turn.client_id, self.client.id)
+            self.assertEqual(turn.date_time, datetime(2026, 10, 9, 14))
+            self.assertEqual(Appointment.query.count(), 2)
+
+    def test_google_import_all_day_requires_time_and_rejects_conflicts(self):
+        event = {'id': 'day-1', 'summary': 'Color', 'start': {'date': '2026-10-08'}}
+        with patch('app.routes.google_calendar_connected', return_value=True), patch('app.routes.list_google_events', return_value=[event]), patch('app.routes.get_google_event', return_value=event):
+            data = {'from_date': '2026-10-01', 'to_date': '2026-10-31', 'event_id': 'day-1', 'client_day-1': str(self.client.id)}
+            self.browser.post('/google-calendar/import', data=data)
+            self.assertEqual(Appointment.query.count(), 1)
+            data['time_day-1'] = '10:30'
+            self.browser.post('/google-calendar/import', data=data)
+            self.assertEqual(Appointment.query.count(), 1)
+            data['time_day-1'] = '12:00'
+            self.browser.post('/google-calendar/import', data=data)
+            self.assertEqual(Appointment.query.filter_by(google_event_id='day-1').one().date_time.hour, 12)
+
+    def test_google_import_connection_and_invalid_selection(self):
+        self.assertEqual(self.browser.get('/google-calendar/import').status_code, 302)
+        with patch('app.routes.google_calendar_connected', return_value=True), patch('app.routes.get_google_event') as fetch:
+            self.browser.post('/google-calendar/import', data={'event_id': 'invalid', 'client_invalid': '999999'})
+            fetch.assert_not_called()
+            self.assertEqual(Appointment.query.count(), 1)
+
 
 if __name__ == '__main__':
     unittest.main()

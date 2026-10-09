@@ -87,12 +87,22 @@ def get_credentials():
 
 def calendar_service():
     from googleapiclient.discovery import build
+    from google_auth_httplib2 import AuthorizedHttp
+    import httplib2
 
     credentials = get_credentials()
     if not credentials:
         return None
 
-    return build('calendar', 'v3', credentials=credentials)
+    # PythonAnywhere free accounts require HTTP CONNECT through their proxy.
+    proxy_url = (
+        os.environ.get('https_proxy') or os.environ.get('HTTPS_PROXY')
+        or os.environ.get('http_proxy') or os.environ.get('HTTP_PROXY')
+    )
+    proxy_info = httplib2.proxy_info_from_url(proxy_url) if proxy_url else None
+    transport = httplib2.Http(proxy_info=proxy_info, timeout=30)
+    authorized_http = AuthorizedHttp(credentials, http=transport)
+    return build('calendar', 'v3', http=authorized_http, cache_discovery=False)
 
 
 def appointment_to_google_event(appointment):
@@ -117,7 +127,7 @@ def appointment_to_google_event(appointment):
 def sync_appointment_to_google(appointment):
     service = calendar_service()
     if not service:
-        return None
+        raise RuntimeError('La autorizacion de Google Calendar no es valida. Conecta la cuenta nuevamente.')
 
     event_body = appointment_to_google_event(appointment)
     events = service.events()

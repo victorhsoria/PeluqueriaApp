@@ -11,3 +11,6 @@ __pycache__/
 # Virtual environment
 env/
 venv/
+
+# Google credentials, notification channels and private calendar cache
+instance/

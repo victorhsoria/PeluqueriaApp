@@ -6,12 +6,13 @@
 </div>
 <section class="calendar-connection">
     <div><strong>Google Calendar</strong>
-        <span>{% if google_calendar_connected %}Conectado{% elif google_calendar_configured %}Sin conectar{% else %}No disponible{% endif %}</span>
+        <span id="google-sync-status" aria-live="polite">{% if google_calendar_connected %}{% if google_watch_active %}Sincronizaci&oacute;n autom&aacute;tica activa{% else %}Conectado{% endif %}{% elif google_calendar_configured %}Sin conectar{% else %}No disponible{% endif %}</span>
     </div>
     <div class="calendar-connection-actions">
         {% if google_calendar_connected %}
-        <a href="{{ url_for('google_calendar_import') }}" class="dashboard-ghost">Importar desde Google</a>
-        <form action="{{ url_for('google_calendar_sync') }}" method="post"><button type="submit" class="dashboard-button">Sincronizar turnos</button></form>
+        {% if not google_watch_active %}<form action="{{ url_for('google_calendar_automatic') }}" method="post"><button type="submit" class="dashboard-button">Activar sincronizaci&oacute;n autom&aacute;tica</button></form>{% endif %}
+        <a href="{{ url_for('google_calendar_import') }}" class="dashboard-ghost">Vincular clientes</a>
+        <form action="{{ url_for('google_calendar_sync') }}" method="post"><button type="submit" class="dashboard-ghost">Enviar turnos a Google</button></form>
         <form action="{{ url_for('google_calendar_disconnect') }}" method="post" onsubmit="return confirm('Desconectar Google Calendar?');"><button type="submit" class="dashboard-ghost">Desconectar</button></form>
         {% elif google_calendar_configured %}
         <a href="{{ url_for('google_calendar_connect') }}" class="dashboard-button">Conectar Google Calendar</a>
@@ -20,7 +21,7 @@
 </section>
 <div class="calendar-workspace">
     <section aria-label="Calendario" class="calendar-surface">
-        <div id="salon-calendar" data-events-url="{{ url_for('api_appointments') }}" data-add-url="{{ url_for('add_appointment') }}"></div>
+        <div id="salon-calendar" data-events-url="{{ url_for('api_appointments') }}" data-refresh-url="{{ url_for('google_calendar_refresh') if google_calendar_connected else '' }}" data-add-url="{{ url_for('add_appointment') }}"></div>
         <p id="calendar-error" class="calendar-error" role="alert" hidden>No se pudo cargar el calendario. <a href="{{ url_for('appointments_calendar') }}">Reintentar</a></p>
     </section>
     <aside class="calendar-day-agenda">

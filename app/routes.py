@@ -13,6 +13,11 @@ from app.google_calendar import (
     save_credentials,
     sync_appointment_to_google,
 )
+from app.google_calendar_sync import (
+    cached_google_events, clear_google_watch, google_event_to_calendar,
+    google_watch_active, receive_google_changes, renew_google_watch,
+    sync_google_background, valid_google_notification,
+)
 from datetime import datetime, date, timedelta, timezone
 from sqlalchemy import func, extract
 from werkzeug.utils import secure_filename
@@ -914,6 +919,7 @@ def appointments_calendar():
         'appointments_calendar.html',
         title='Calendario de Turnos',
         google_calendar_configured=google_calendar_configured(),
+        google_watch_active=google_watch_active(),
         google_calendar_connected=google_calendar_connected()
     )
 
@@ -958,6 +964,11 @@ def google_calendar_callback():
         flow.fetch_token(authorization_response=authorization_response)
         save_credentials(flow.credentials)
         flash('Google Calendar conectado correctamente.', 'success')
+        try:
+            renew_google_watch()
+            sync_google_background()
+        except Exception:
+            flash('Cuenta conectada. No se pudo activar la sincronizacion en segundo plano.', 'warning')
     except Exception as e:
         flash(f'No se pudo conectar Google Calendar: {e}', 'danger')
 
@@ -970,6 +981,7 @@ def google_calendar_disconnect():
     Desconecta Google Calendar eliminando el token local.
     """
     delete_google_token()
+    clear_google_watch()
     flash('Google Calendar desconectado.', 'success')
     return redirect(url_for('appointments_calendar'))
 
@@ -985,6 +997,12 @@ def google_calendar_sync():
 
     synced = 0
     failed = 0
+    try:
+        receive_google_changes()
+    except Exception:
+        db.session.rollback()
+        flash('No se pudo consultar Google. No se enviaron cambios para evitar sobrescribir sus eventos.', 'danger')
+        return redirect(url_for('appointments_calendar'))
     appointments = Appointment.query.join(Client).order_by(Appointment.date_time).all()
     for appointment in appointments:
         try:
@@ -1076,6 +1094,72 @@ def google_calendar_import():
                            clients=Client.query.order_by(Client.first_name, Client.last_name).all())
 
 
+@app.route('/google-calendar/automatic', methods=['POST'])
+def google_calendar_automatic():
+    try:
+        renew_google_watch()
+        sync_google_background()
+        flash('Sincronizacion automatica activada.', 'success')
+    except Exception:
+        db.session.rollback()
+        flash('No se pudo activar la sincronizacion automatica. Revisa la configuracion de Google.', 'danger')
+    return redirect(url_for('appointments_calendar'))
+
+
+@app.route('/google-calendar/notifications', methods=['POST'])
+def google_calendar_notifications():
+    if not valid_google_notification(request.headers):
+        return '', 403
+    if request.headers.get('X-Goog-Resource-State') == 'sync':
+        return '', 204
+    if request.headers.get('X-Goog-Resource-State') not in ('exists', 'not_exists'):
+        return '', 400
+    try:
+        sync_google_background()
+    except Exception:
+        db.session.rollback()
+        app.logger.warning('No se pudo procesar la notificacion de Google Calendar.')
+        return '', 503
+    return '', 204
+
+
+@app.route('/api/google-calendar/refresh', methods=['POST'])
+def google_calendar_refresh():
+    data = request.get_json(silent=True)
+    try:
+        if not isinstance(data, dict):
+            raise ValueError
+        start = date.fromisoformat(data.get('start', ''))
+        end = date.fromisoformat(data.get('end', ''))
+        if not 0 < (end - start).days <= 366:
+            raise ValueError
+    except (ValueError, TypeError):
+        return jsonify(error='Periodo invalido.'), 400
+    events = []
+    warning = None
+    if google_calendar_connected():
+        try:
+            events = list_google_events(start, end - timedelta(days=1))
+            receive_google_changes(events)
+        except Exception:
+            db.session.rollback()
+            events = cached_google_events()
+            warning = 'No se pudo actualizar desde Google. Se muestran los ultimos datos disponibles.'
+    local = api_appointments().get_json()
+    by_id = {event['google_event_id']: event for event in local if event.get('google_event_id')}
+    for event in events:
+        if event.get('status') == 'cancelled':
+            continue
+        remote = google_event_to_calendar(event)
+        linked = by_id.get(event['id'])
+        if linked:
+            for field in ('start', 'end', 'allDay', 'date', 'time'):
+                linked[field] = remote[field]
+        else:
+            local.append(remote)
+    return jsonify(events=local, warning=warning)
+
+
 @app.route('/api/appointments')
 def api_appointments():
     """
@@ -1086,15 +1170,17 @@ def api_appointments():
         Appointment.id,
         Appointment.date_time,
         Appointment.description,
+        Appointment.google_event_id,
         Client.id,
         Client.first_name,
         Client.last_name
     ).join(Client).order_by(Appointment.date_time).all()
 
     appointments_data = []
-    for appt_id, date_time, description, client_id, client_first_name, client_last_name in appointments:
+    for appt_id, date_time, description, google_event_id, client_id, client_first_name, client_last_name in appointments:
         appointments_data.append({
             'id': appt_id,
+            'google_event_id': google_event_id,
             'title': f"{client_first_name} {client_last_name}: {description}",
             'start': date_time.isoformat(),
             'end': (date_time + timedelta(minutes=_appointment_minutes())).isoformat(),

@@ -136,8 +136,8 @@ def google_event_start(event, appointment_time=None):
     return datetime.combine(day, time.fromisoformat(appointment_time)) if appointment_time else None
 
 
-def list_google_events(start_date, end_date):
-    service = calendar_service()
+def list_google_events(start_date, end_date, service=None):
+    service = service or calendar_service()
     if not service:
         raise RuntimeError('Conecta Google Calendar nuevamente.')
     zone = ZoneInfo(_timezone())
@@ -156,8 +156,8 @@ def list_google_events(start_date, end_date):
         parameters['pageToken'] = page['nextPageToken']
 
 
-def get_google_event(event_id):
-    service = calendar_service()
+def get_google_event(event_id, service=None):
+    service = service or calendar_service()
     if not service:
         raise RuntimeError('Conecta Google Calendar nuevamente.')
     return service.events().get(calendarId=_calendar_id(), eventId=event_id).execute()

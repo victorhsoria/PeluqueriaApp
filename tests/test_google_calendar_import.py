@@ -1,6 +1,10 @@
 import unittest
 from datetime import date, datetime
 from unittest.mock import MagicMock, patch
+from tempfile import TemporaryDirectory
+
+from app import app
+from app.google_calendar_sync import renew_google_watch, google_watch_active, clear_google_watch
 
 from app.google_calendar import google_event_start, list_google_events
 
@@ -25,6 +29,29 @@ class GoogleImportTests(unittest.TestCase):
         self.assertTrue(calls[0].kwargs['singleEvents'])
         self.assertEqual(calls[1].kwargs['pageToken'], 'next')
         self.assertTrue(calls[0].kwargs['timeMax'].startswith('2026-11-01T00:00:00'))
+
+    def test_watch_registration_reuse_and_disconnect(self):
+        service = MagicMock()
+        service.events.return_value.watch.return_value.execute.return_value = {'resourceId': 'resource', 'expiration': '9999999999999'}
+        with TemporaryDirectory() as directory, app.app_context(), patch.object(app, 'instance_path', directory), patch.dict('os.environ', {'GOOGLE_REDIRECT_URI': 'https://example.com/google-calendar/callback', 'GOOGLE_CALENDAR_ID': 'primary'}), patch('app.google_calendar_sync.google_calendar_connected', return_value=True), patch('app.google_calendar_sync.calendar_service', return_value=service):
+            state = renew_google_watch()
+            self.assertEqual(state['address'], 'https://example.com/google-calendar/notifications')
+            self.assertTrue(google_watch_active())
+            self.assertEqual(renew_google_watch()['id'], state['id'])
+            service.events.return_value.watch.assert_called_once()
+            clear_google_watch()
+            self.assertFalse(google_watch_active())
+
+    def test_watch_failure_restores_previous_channel(self):
+        from app.google_calendar_sync import _read_state, _write_state
+        service = MagicMock()
+        service.events.return_value.watch.return_value.execute.side_effect = RuntimeError('offline')
+        with TemporaryDirectory() as directory, app.app_context(), patch.object(app, 'instance_path', directory), patch.dict('os.environ', {'GOOGLE_REDIRECT_URI': 'https://example.com/google-calendar/callback'}), patch('app.google_calendar_sync.google_calendar_connected', return_value=True), patch('app.google_calendar_sync.calendar_service', return_value=service):
+            old = {'id': 'previous', 'expiration': 1}
+            _write_state('google_calendar_watch.json', old)
+            with self.assertRaises(RuntimeError):
+                renew_google_watch()
+            self.assertEqual(_read_state('google_calendar_watch.json'), old)
 
 
 if __name__ == '__main__':

@@ -61,9 +61,41 @@ def calculate_color_pricing(data):
         raise ValueError('Tipo de coloracion o largo invalido.')
     material_total = sum((Decimal(row['cost']) for row in materials), Decimal(0))
     total = Decimal(money(material_total + labour + overhead + other))
-    return {
+    template_id = data.get('template_id')
+    if template_id is not None and (type(template_id) is not int or template_id <= 0):
+        raise ValueError('Plantilla de servicio invalida.')
+    result = {
         'version': 1, 'kind': kind, 'length': length, 'materials': materials,
         'labour': money(labour), 'overhead': money(overhead), 'other_costs': money(other),
         'margin': str(margin), 'material_total': money(material_total),
         'total_cost': money(total), 'suggested_price': money(total / (1 - margin / 100)),
     }
+    if template_id is not None:
+        result['template_id'] = template_id
+    return result
+
+
+def refresh_color_pricing(data, products, template=None):
+    pricing = calculate_color_pricing(data)
+    changes = []
+    warnings = []
+    for row in pricing['materials']:
+        if row['product_id'] is None or row['client_supplied']:
+            continue
+        product = products.get(row['product_id'])
+        if product is None:
+            warnings.append(f"{row['label']}: producto no disponible; se conserva el costo guardado.")
+            continue
+        new_cost = money(amount(product.wholesale_price, 'Costo del producto'))
+        if Decimal(row['package_cost']) != Decimal(new_cost):
+            changes.append({'label': row['label'] + ' (envase)', 'before': money(Decimal(row['package_cost'])), 'after': new_cost, 'percent': False})
+        row['package_cost'] = new_cost
+    if template is not None:
+        defaults = calculate_color_pricing(template.pricing)
+        for key, label in [('labour', 'Mano de obra'), ('overhead', 'Gastos del salon'), ('other_costs', 'Otros costos'), ('margin', 'Margen sobre venta')]:
+            if Decimal(pricing[key]) != Decimal(defaults[key]):
+                changes.append({'label': label, 'before': pricing[key], 'after': defaults[key], 'percent': key == 'margin'})
+            pricing[key] = defaults[key]
+    elif pricing.get('template_id') is not None:
+        warnings.append('La plantilla original ya no existe; se conservan mano de obra, gastos y margen.')
+    return calculate_color_pricing(pricing), changes, warnings

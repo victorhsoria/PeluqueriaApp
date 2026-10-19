@@ -10,8 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const round = value => Math.round((value + Number.EPSILON) * 100) / 100;
     const numeric = value => value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 1e9;
     let suggestion = null;
+    let activeTemplateId = initial.pricing?.template_id || null;
+    let pendingRefresh = null;
     function pricingData() {
         const data = { kind: document.getElementById('pricing-kind').value, length: document.getElementById('pricing-length').value };
+        if (activeTemplateId && !initial.template_mode) data.template_id = activeTemplateId;
         for (const key of ['labour', 'overhead', 'other_costs', 'margin']) data[key] = document.getElementById(`pricing-${key}`).value;
         data.materials = [...materials.children].map(row => ({
             ...Object.fromEntries([...row.querySelectorAll('[data-key]')].map(input => [input.dataset.key, input.type === 'checkbox' ? input.checked : input.value])),
@@ -43,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('summary-total').textContent = valid ? currency(total) : '\u2014';
         document.getElementById('summary-price').textContent = suggestion === null ? '\u2014' : currency(suggestion);
         const charged = Number(price.value) || 0;
-        document.getElementById('summary-profit').textContent = valid ? currency(charged - total) : '\u2014';
+        document.getElementById('summary-profit').textContent = valid && price.value !== '' ? currency(charged - total) : '\u2014';
         document.getElementById('summary-margin').textContent = valid && charged > 0 ? `${((charged - total) / charged * 100).toFixed(2)} %` : '\u2014';
         document.getElementById('use-suggested-price').disabled = suggestion === null || suggestion > 1e9;
         const error = document.getElementById('pricing-error');
@@ -55,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = document.getElementById('material-template').content.firstElementChild.cloneNode(true);
         const picker = row.querySelector('[data-product]');
         initial.products.forEach(product => picker.add(new Option(product.label, product.id)));
+        if (data.product_id && !initial.products.some(product => product.id === data.product_id)) picker.add(new Option(`Producto no disponible: ${data.label}`, data.product_id));
         picker.value = data.product_id || '';
         row.querySelectorAll('[data-key]').forEach(input => {
             const value = data[input.dataset.key];
@@ -88,16 +92,22 @@ document.addEventListener('DOMContentLoaded', () => {
         remove.title = 'Quitar producto'; remove.setAttribute('aria-label', 'Quitar producto'); remove.addEventListener('click', () => row.remove());
         row.append(productLabel, quantityLabel, remove); document.getElementById('used-products-container').append(row);
     }
-    if (initial.pricing) {
-        const data = initial.pricing;
+    function applyPricing(data) {
+        activeTemplateId = data.template_id || null;
+        materials.replaceChildren();
         document.getElementById('pricing-kind').value = data.kind || 'raiz';
         document.getElementById('pricing-length').value = data.length || 'corto';
         for (const key of ['labour', 'overhead', 'other_costs', 'margin']) document.getElementById(`pricing-${key}`).value = data[key] ?? 0;
         if (Array.isArray(data.materials)) data.materials.filter(row => row && typeof row === 'object' && !Array.isArray(row)).forEach(addMaterial);
+        enabled.checked = true;
+        fields.hidden = fields.disabled = false;
+        document.getElementById('pricing-summary').hidden = false;
+        recalculate();
     }
+    if (initial.pricing) applyPricing(initial.pricing);
     initial.associations.forEach(addStockRow);
     document.getElementById('add-material').addEventListener('click', () => addMaterial());
-    document.getElementById('add-product-btn').addEventListener('click', () => addStockRow());
+    document.getElementById('add-product-btn')?.addEventListener('click', () => addStockRow());
     enabled.addEventListener('change', () => {
         fields.hidden = fields.disabled = !enabled.checked;
         document.getElementById('pricing-summary').hidden = !enabled.checked;
@@ -106,5 +116,65 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('input', recalculate); form.addEventListener('change', recalculate);
     document.getElementById('use-suggested-price').addEventListener('click', () => { if (suggestion !== null) { price.value = suggestion.toFixed(2); recalculate(); } });
     form.addEventListener('submit', event => { recalculate(); if (enabled.checked && suggestion === null) { event.preventDefault(); document.getElementById('pricing-error').focus(); } });
+    const status = document.getElementById('pricing-template-status');
+    const templateSelect = document.getElementById('service-template-select');
+    const applyTemplate = document.getElementById('apply-service-template');
+    if (applyTemplate) {
+        applyTemplate.disabled = !templateSelect.value;
+        templateSelect.addEventListener('change', () => { applyTemplate.disabled = !templateSelect.value; });
+        applyTemplate.addEventListener('click', async () => {
+            if (!templateSelect.value) return;
+            if ((materials.children.length || Number(document.getElementById('pricing-labour').value)) && !window.confirm('Reemplazar el calculo por esta plantilla? El precio a cobrar no se modifica.')) return;
+            applyTemplate.disabled = true;
+            templateSelect.disabled = true;
+            try {
+                const response = await fetch(initial.template_url.replace(/\/0$/, '/' + templateSelect.value));
+                if (!response.ok) throw new Error('No se pudo cargar la plantilla.');
+                const result = await response.json();
+                applyPricing(result.pricing);
+                status.textContent = result.warnings.join(' ');
+                const description = form.querySelector('[name="description"]');
+                if (description && !description.value.trim()) description.value = result.name;
+            } catch (error) { status.textContent = error.message; }
+            finally { templateSelect.disabled = false; applyTemplate.disabled = !templateSelect.value; }
+        });
+    }
+    const dialog = document.getElementById('pricing-refresh-dialog');
+    const refresh = document.getElementById('refresh-pricing');
+    refresh.addEventListener('click', async () => {
+        recalculate();
+        if (suggestion === null) { document.getElementById('pricing-error').focus(); return; }
+        refresh.disabled = true;
+        const requested = JSON.stringify(pricingData());
+        try {
+            const response = await fetch(initial.refresh_url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requested });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'No se pudieron consultar los precios.');
+            if (JSON.stringify(pricingData()) !== requested) throw new Error('El presupuesto cambio durante la consulta. Vuelve a actualizar.');
+            pendingRefresh = result.pricing;
+            const container = document.getElementById('pricing-refresh-changes');
+            container.replaceChildren();
+            const header = document.createElement('div'); header.className = 'pricing-change';
+            for (const label of ['Concepto', 'Anterior', 'Actual']) { const span = document.createElement('strong'); span.textContent = label; header.append(span); }
+            container.append(header);
+            for (const change of result.changes) {
+                const row = document.createElement('div'); row.className = 'pricing-change';
+                for (const value of [change.label, change.percent ? `${change.before} %` : currency(Number(change.before)), change.percent ? `${change.after} %` : currency(Number(change.after))]) { const span = document.createElement('span'); span.textContent = value; row.append(span); }
+                container.append(row);
+            }
+            document.getElementById('pricing-refresh-totals').textContent = result.changes.length ? `Precio sugerido: ${currency(Number(result.before))} \u2192 ${currency(Number(result.after))}` : 'No hay cambios de costos.';
+            document.getElementById('pricing-refresh-warnings').textContent = result.warnings.join(' ');
+            document.getElementById('confirm-pricing-refresh').disabled = !result.changes.length;
+            dialog.showModal();
+        } catch (error) { status.textContent = error.message; }
+        finally { refresh.disabled = false; }
+    });
+    document.getElementById('confirm-pricing-refresh').addEventListener('click', () => {
+        if (pendingRefresh) applyPricing(pendingRefresh);
+        dialog.close();
+        status.textContent = 'Costos actualizados. El precio a cobrar se conserva.';
+    });
+    document.getElementById('cancel-pricing-refresh').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('close', () => { pendingRefresh = null; });
     recalculate();
 });

@@ -25,7 +25,8 @@ import locale
 import os
 from uuid import uuid4
 import json
-from app.service_pricing import amount, calculate_color_pricing
+from app.service_pricing import amount, calculate_color_pricing, refresh_color_pricing
+from app.models import ServiceTemplate
 
 
 CLIENT_EVALUATION_OPTIONS = {
@@ -726,8 +727,8 @@ def _service_pricing_from_form():
     return calculate_color_pricing(data)
 
 
-def _render_service_form(client, service=None):
-    pricing = service.cost_breakdown if service else None
+def _render_service_form(client=None, service=None, template=None, template_mode=False):
+    pricing = (template.pricing if template else {}) if template_mode else (service.cost_breakdown if service else None)
     associations = [{'product_id': row.product_id, 'quantity': row.quantity}
                     for row in service.product_associations] if service else []
     if request.method == 'POST':
@@ -742,9 +743,92 @@ def _render_service_form(client, service=None):
     products = [{'id': product.id, 'label': f'{product.brand} - {product.description}',
                  'cost': product.wholesale_price, 'stock': product.stock}
                 for product in Product.query.order_by(Product.brand, Product.description).all()]
+    if template_mode and pricing is None:
+        pricing = {}
+    title = ('Editar plantilla' if template else 'Nueva plantilla de servicio') if template_mode else f'{"Editar" if service else "Agregar"} trabajo para {client.first_name}'
     return render_template('add_edit_service.html', client=client, service=service,
                            pricing=pricing, associations=associations, products=products,
-                           title=f'{"Editar" if service else "Agregar"} trabajo para {client.first_name}')
+                           title=title, template_mode=template_mode, template=template,
+                           pricing_templates=[{'id': row.id, 'name': row.name} for row in ServiceTemplate.query.order_by(ServiceTemplate.name).all()])
+
+
+@app.route('/service-templates')
+def service_templates():
+    return render_template('service_templates.html', title='Servicios',
+                           templates=ServiceTemplate.query.order_by(ServiceTemplate.name).all())
+
+
+def _save_service_template(template=None):
+    if request.method == 'POST':
+        try:
+            name = request.form.get('template_name', '').strip()
+            if not name or len(name) > 150:
+                raise ValueError('Completa el nombre del servicio (hasta 150 caracteres).')
+            duplicate = ServiceTemplate.query.filter(func.lower(ServiceTemplate.name) == name.lower()).first()
+            if duplicate and (template is None or duplicate.id != template.id):
+                raise ValueError('Ya existe una plantilla con ese nombre.')
+            pricing = _service_pricing_from_form()
+            if pricing is None:
+                raise ValueError('Completa el calculo del servicio.')
+            pricing.pop('template_id', None)
+            if template is None:
+                template = ServiceTemplate(name=name, pricing=pricing)
+                db.session.add(template)
+            else:
+                template.name = name
+                template.pricing = pricing
+            db.session.commit()
+            flash('Configuracion del servicio guardada.', 'success')
+            return redirect(url_for('service_templates'))
+        except ValueError as error:
+            db.session.rollback()
+            flash(str(error), 'danger')
+        except Exception:
+            db.session.rollback()
+            flash('No se pudo guardar la plantilla.', 'danger')
+    return _render_service_form(template=template, template_mode=True)
+
+
+@app.route('/service-templates/add', methods=['GET', 'POST'])
+def add_service_template():
+    return _save_service_template()
+
+
+@app.route('/service-templates/<int:template_id>/edit', methods=['GET', 'POST'])
+def edit_service_template(template_id):
+    return _save_service_template(db.get_or_404(ServiceTemplate, template_id))
+
+
+@app.route('/service-templates/<int:template_id>/delete', methods=['POST'])
+def delete_service_template(template_id):
+    template = db.get_or_404(ServiceTemplate, template_id)
+    db.session.delete(template)
+    db.session.commit()
+    flash('Plantilla eliminada. Los trabajos guardados no se modificaron.', 'success')
+    return redirect(url_for('service_templates'))
+
+
+@app.route('/api/service-templates/<int:template_id>')
+def api_service_template(template_id):
+    template = db.get_or_404(ServiceTemplate, template_id)
+    pricing = dict(template.pricing, template_id=template.id)
+    products = {product.id: product for product in Product.query.all()}
+    updated, changes, warnings = refresh_color_pricing(pricing, products, template)
+    return jsonify(pricing=updated, warnings=warnings, name=template.name)
+
+
+@app.route('/api/service-pricing/refresh', methods=['POST'])
+def api_refresh_service_pricing():
+    try:
+        data = request.get_json(silent=True)
+        pricing = calculate_color_pricing(data)
+        template = db.session.get(ServiceTemplate, pricing['template_id']) if pricing.get('template_id') else None
+        products = {product.id: product for product in Product.query.all()}
+        updated, changes, warnings = refresh_color_pricing(pricing, products, template)
+        return jsonify(pricing=updated, changes=changes, warnings=warnings,
+                       before=pricing['suggested_price'], after=updated['suggested_price'])
+    except ValueError as error:
+        return jsonify(error=str(error)), 400
 
 
 def _set_service_products(service):

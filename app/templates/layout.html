@@ -175,6 +175,7 @@
                 <a href="{{ url_for('clients') }}" class="{% if request.endpoint in ['clients', 'add_client', 'edit_client', 'client_detail', 'client_stats'] %}is-active{% endif %}">
                     Clientes
                 </a>
+                <a href="{{ url_for('service_templates') }}" class="{% if request.endpoint in ['service_templates', 'add_service_template', 'edit_service_template'] %}is-active{% endif %}">Servicios</a>
                 <a href="{{ url_for('appointments_calendar') }}" class="{% if request.endpoint in ['appointments_calendar', 'add_appointment', 'edit_appointment'] %}is-active{% endif %}">
                     Calendario
                 </a>

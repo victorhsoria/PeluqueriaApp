@@ -9,7 +9,7 @@ from alembic.operations import Operations
 from sqlalchemy import create_engine, inspect, text
 
 from app import app, db
-from app.models import Client, Product, Service
+from app.models import Client, Product, Service, ServiceTemplate
 from app.service_pricing import calculate_color_pricing
 
 
@@ -70,6 +70,20 @@ class PricingTests(unittest.TestCase):
                 self.assertEqual(connection.execute(text('SELECT price, cost_breakdown FROM service')).one(), (20000, None))
                 migration.downgrade()
                 self.assertEqual(connection.execute(text('SELECT price FROM service')).scalar(), 20000)
+        engine.dispose()
+
+    def test_template_migration_does_not_change_service_prices(self):
+        migration = importlib.import_module('migrations.versions.c5d8e3f0b721_agregar_plantillas_de_servicios')
+        engine = create_engine('sqlite:///:memory:')
+        with engine.begin() as connection:
+            connection.execute(text('CREATE TABLE service (id INTEGER PRIMARY KEY, price FLOAT NOT NULL)'))
+            connection.execute(text('INSERT INTO service VALUES (1, 29000)'))
+            with Operations.context(MigrationContext.configure(connection)):
+                migration.upgrade()
+                self.assertIn('service_template', inspect(connection).get_table_names())
+                self.assertEqual(connection.execute(text('SELECT price FROM service')).scalar(), 29000)
+                migration.downgrade()
+                self.assertNotIn('service_template', inspect(connection).get_table_names())
         engine.dispose()
 
 
@@ -183,6 +197,93 @@ class ServicePricingRoutesTests(unittest.TestCase):
         data['product_ids'] = str(self.product.id)
         self.browser.post(self.path, data=data)
         self.assertEqual(Service.query.count(), 0)
+        self.assertEqual(self.product.stock, 10)
+
+    def test_template_create_edit_and_name_validation(self):
+        data = {'template_name': 'Raiz melena', 'pricing_enabled': 'on', 'pricing_data': json.dumps(example())}
+        self.assertEqual(self.browser.get('/service-templates/add').status_code, 200)
+        self.assertEqual(self.browser.post('/service-templates/add', data=data).status_code, 302)
+        template = ServiceTemplate.query.one()
+        self.assertEqual(self.browser.get('/service-templates').status_code, 200)
+        self.assertEqual(self.browser.get(f'/service-templates/{template.id}/edit').status_code, 200)
+        self.assertEqual(self.product.stock, 10)
+        data['template_name'] = 'raiz melena'
+        self.assertEqual(self.browser.post('/service-templates/add', data=data).status_code, 200)
+        self.assertEqual(ServiceTemplate.query.count(), 1)
+        data['template_name'] = ''
+        self.browser.post('/service-templates/add', data=data)
+        self.assertEqual(ServiceTemplate.query.count(), 1)
+
+    def test_template_prices_are_current_and_history_is_unchanged(self):
+        config = example()
+        config['materials'][0]['product_id'] = self.product.id
+        template = ServiceTemplate(name='Raiz', pricing=calculate_color_pricing(config))
+        db.session.add(template)
+        db.session.commit()
+        config['template_id'] = template.id
+        data = self.form_data()
+        data['pricing_data'] = json.dumps(config)
+        self.browser.post(self.path, data=data)
+        service = Service.query.one()
+        original = deepcopy(service.cost_breakdown)
+        self.product.wholesale_price = 18000
+        updated = example()
+        updated['materials'][0]['product_id'] = self.product.id
+        updated['labour'] = '12000'
+        template.pricing = calculate_color_pricing(updated)
+        db.session.commit()
+        current = self.browser.get(f'/api/service-templates/{template.id}').get_json()
+        self.assertEqual(current['pricing']['materials'][0]['package_cost'], '18000.00')
+        self.assertEqual(current['pricing']['labour'], '12000.00')
+        preview = self.browser.post('/api/service-pricing/refresh', json=original).get_json()
+        self.assertEqual(len(preview['changes']), 2)
+        self.assertEqual(preview['pricing']['total_cost'], '25000.00')
+        self.assertEqual(preview['pricing']['materials'][0]['quantity'], '30')
+        self.assertEqual(service.cost_breakdown, original)
+        self.assertEqual(service.price, 29000)
+        data['pricing_data'] = json.dumps(preview['pricing'])
+        self.browser.post(f'/clients/{self.client.id}/services/edit/{service.id}', data=data)
+        self.assertEqual(service.cost_breakdown['total_cost'], '25000.00')
+        self.assertEqual(service.price, 29000)
+
+    def test_refresh_deleted_template_and_products_preserves_snapshot(self):
+        config = example()
+        config['template_id'] = 999
+        config['materials'][0]['product_id'] = 999
+        preview = self.browser.post('/api/service-pricing/refresh', json=config).get_json()
+        self.assertEqual(len(preview['warnings']), 2)
+        self.assertEqual(preview['pricing']['total_cost'], '20000.00')
+        self.assertEqual(preview['changes'], [])
+        self.assertEqual(self.browser.post('/api/service-pricing/refresh', json={'margin': 100}).status_code, 400)
+        self.assertEqual(self.browser.post('/api/service-pricing/refresh', json=[]).status_code, 400)
+
+    def test_refresh_keeps_custom_consumption_and_client_supplied_products(self):
+        config = example()
+        config['materials'][0].update(product_id=self.product.id, quantity='42.5', client_supplied=True)
+        config['labour'] = '15000'
+        self.product.wholesale_price = 18000
+        db.session.commit()
+        response = self.browser.post('/api/service-pricing/refresh', json=config).get_json()
+        row = response['pricing']['materials'][0]
+        self.assertEqual(row['quantity'], '42.5')
+        self.assertTrue(row['client_supplied'])
+        self.assertEqual(row['cost'], '0.00')
+        self.assertEqual(response['pricing']['labour'], '15000.00')
+        self.assertEqual(self.product.stock, 10)
+
+    def test_delete_template_does_not_delete_work(self):
+        template = ServiceTemplate(name='Raiz', pricing=calculate_color_pricing(example()))
+        db.session.add(template)
+        db.session.commit()
+        data = self.form_data()
+        config = example()
+        config['template_id'] = template.id
+        data['pricing_data'] = json.dumps(config)
+        self.browser.post(self.path, data=data)
+        original = deepcopy(Service.query.one().cost_breakdown)
+        self.assertEqual(self.browser.post(f'/service-templates/{template.id}/delete').status_code, 302)
+        self.assertEqual(ServiceTemplate.query.count(), 0)
+        self.assertEqual(Service.query.one().cost_breakdown, original)
         self.assertEqual(self.product.stock, 10)
 
 

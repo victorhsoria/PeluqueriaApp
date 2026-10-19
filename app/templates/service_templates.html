@@ -1,0 +1,14 @@
+{% extends 'layout.html' %}
+{% block content %}
+<div class="workspace-heading"><h1>Servicios</h1><a class="dashboard-button" href="{{ url_for('add_service_template') }}">+ Nueva plantilla</a></div>
+<div class="service-template-list">
+    {% for row in templates %}
+    <div class="service-template-row">
+        <div><a href="{{ url_for('edit_service_template', template_id=row.id) }}"><strong>{{ row.name }}</strong></a><div>{{ {'raiz': 'Retoque de raiz', 'completo': 'Color completo', 'aplicacion': 'Solo aplicacion'}.get(row.pricing.kind, '') }} &middot; {{ {'corto': 'Corto', 'melena': 'Melena', 'largo': 'Largo', 'extralargo': 'Extralargo', 'abundante': 'Extralargo abundante'}.get(row.pricing.length, '') }}</div></div>
+        <div><span>Mano de obra</span><strong>{{ row.pricing.labour|float|currency }}</strong></div>
+        <div><span>Margen</span><strong>{{ row.pricing.margin }} %</strong></div>
+        <div class="service-actions"><a class="dashboard-ghost" href="{{ url_for('edit_service_template', template_id=row.id) }}">Editar</a><form method="post" action="{{ url_for('delete_service_template', template_id=row.id) }}" onsubmit="return confirm('Eliminar esta plantilla? Los trabajos guardados no se modifican.');"><button class="service-remove" type="submit" title="Eliminar plantilla" aria-label="Eliminar plantilla">&times;</button></form></div>
+    </div>
+    {% else %}<p>No hay plantillas de servicios registradas.</p>{% endfor %}
+</div>
+{% endblock %}

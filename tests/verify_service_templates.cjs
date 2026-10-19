@@ -1,0 +1,72 @@
+const { chromium } = require(process.argv[2]);
+const assert = require('node:assert/strict');
+const os = require('node:os');
+const path = require('node:path');
+
+(async () => {
+    const browser = await chromium.launch({ headless: true, channel: 'chrome' });
+    try {
+        const page = await browser.newPage();
+        const errors = [];
+        page.on('pageerror', error => errors.push(error.message));
+        for (const width of [1440, 390]) {
+            await page.setViewportSize({ width, height: 950 });
+            const updateProduct = value => page.request.post('http://127.0.0.1:5065/products/edit/1', { form: { brand: 'Marca', description: 'Tintura 60 g', wholesale_price: value, sale_percentage: '30' } });
+            assert((await updateProduct('12000')).ok());
+            await page.goto('http://127.0.0.1:5065/service-templates/add');
+            await page.locator('[name="template_name"]').fill(`Color raiz ${width}`);
+            await page.locator('#add-material').click();
+            const row = page.locator('.service-material');
+            await row.locator('[data-product]').selectOption('1');
+            await row.locator('[data-key="package_quantity"]').fill('60');
+            await row.locator('[data-key="quantity"]').fill('30');
+            await page.locator('#pricing-labour').fill('10000');
+            await page.locator('#pricing-overhead').fill('2500');
+            await page.locator('#pricing-margin').fill('30');
+            await Promise.all([page.waitForURL('**/service-templates'), page.getByRole('button', { name: 'Guardar plantilla' }).click()]);
+            const templateRow = page.locator('.service-template-row').filter({ hasText: `Color raiz ${width}` });
+            const editPath = await templateRow.getByRole('link', { name: 'Editar', exact: true }).getAttribute('href');
+            const id = editPath.split('/')[2];
+            await page.goto('http://127.0.0.1:5065/clients/1/services/add');
+            await page.locator('#service-template-select').selectOption(id);
+            await page.locator('#apply-service-template').click();
+            await page.waitForFunction(() => document.getElementById('pricing-labour').value === '10000.00');
+            assert.equal(await page.locator('.service-material [data-key="package_cost"]').inputValue(), '12000.00');
+            await page.locator('[name="date"]').fill('2026-10-19');
+            await page.locator('#price').fill('27000');
+            await Promise.all([page.waitForURL('**/clients/1'), page.getByRole('button', { name: 'Guardar trabajo' }).click()]);
+            const workEdit = await page.locator('a[href*="/services/edit/"]').last().getAttribute('href');
+            assert((await updateProduct('18000')).ok());
+            await page.goto('http://127.0.0.1:5065' + editPath);
+            await page.locator('#pricing-labour').fill('12000');
+            await Promise.all([page.waitForURL('**/service-templates'), page.getByRole('button', { name: 'Guardar plantilla' }).click()]);
+            await page.goto('http://127.0.0.1:5065' + workEdit);
+            assert.equal(await page.locator('#pricing-labour').inputValue(), '10000.00');
+            assert.equal(await page.locator('.service-material [data-key="package_cost"]').inputValue(), '12000.00');
+            await page.locator('#refresh-pricing').click();
+            await page.locator('#pricing-refresh-dialog').waitFor({ state: 'visible' });
+            assert((await page.locator('#pricing-refresh-changes').textContent()).includes('Mano de obra'));
+            assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+            const file = path.join(os.tmpdir(), `peluqueria-template-refresh-${width}.png`);
+            await page.screenshot({ path: file });
+            console.log(file);
+            await page.locator('#cancel-pricing-refresh').click();
+            assert.equal(await page.locator('#pricing-labour').inputValue(), '10000.00');
+            await page.locator('#refresh-pricing').click();
+            await page.locator('#confirm-pricing-refresh').click();
+            assert.equal(await page.locator('#pricing-labour').inputValue(), '12000.00');
+            assert.equal(await page.locator('.service-material [data-key="package_cost"]').inputValue(), '18000.00');
+            assert.equal(await page.locator('#price').inputValue(), '27000.00');
+            await Promise.all([page.waitForURL('**/clients/1'), page.getByRole('button', { name: 'Actualizar trabajo' }).click()]);
+            await page.goto('http://127.0.0.1:5065/clients/1/services/add');
+            await page.locator('#service-template-select').selectOption(id);
+            await page.locator('#apply-service-template').click();
+            await page.waitForFunction(() => document.getElementById('pricing-labour').value === '12000.00');
+            assert.equal(await page.locator('.service-material [data-key="package_cost"]').inputValue(), '18000.00');
+            await page.evaluate(() => { document.activeElement.blur(); scrollTo(0, 0); });
+            await page.screenshot({ path: path.join(os.tmpdir(), `peluqueria-template-${width}.png`), fullPage: true });
+        }
+        assert.deepEqual(errors, []);
+        console.log('Templates, live product costs, immutable history, preview/cancel/confirm: OK');
+    } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

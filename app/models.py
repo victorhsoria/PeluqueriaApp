@@ -144,6 +144,13 @@ class Appointment(db.Model):
     def __repr__(self):
         return f"<Appointment {self.client.first_name} {self.client.last_name} on {self.date_time}>"
 
+class ServiceTemplate(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False, unique=True)
+    pricing = db.Column(db.JSON, nullable=False)
+    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+
+
 class Service(db.Model):
     """
     Modelo para los trabajos/servicios realizados a los clientes.

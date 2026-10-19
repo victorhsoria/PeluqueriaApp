@@ -1,118 +1,70 @@
 {% extends 'layout.html' %}
-
 {% block content %}
-<h1 class="text-4xl font-bold text-center mb-8 text-gray-800">{{ title }}</h1>
-
-<div class="max-w-xl mx-auto bg-white p-8 rounded-lg shadow-xl">
-    <form method="POST">
-        <div class="mb-5">
-            <label for="date" class="block text-gray-700 text-sm font-bold mb-2">Fecha del Trabajo:</label>
-            <input type="date" id="date" name="date" 
-                   value="{{ service.date.strftime('%Y-%m-%d') if service else '' }}" 
-                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" 
-                   required>
+<div class="workspace-heading"><div><a class="back-link" href="{{ url_for('client_detail', client_id=client.id) }}">{{ client.first_name }} {{ client.last_name }}</a><h1>{{ title }}</h1></div></div>
+<form method="post" id="service-form" class="service-form">
+    <div class="service-workspace">
+        <div>
+            <section class="service-section">
+                <div class="service-fields">
+                    <label>Fecha<input type="date" name="date" required value="{{ request.form.get('date', service.date.isoformat() if service else '') }}"></label>
+                    <label>Precio a cobrar ($)<input type="number" id="price" name="price" min="0" max="1000000000" step="0.01" required value="{{ request.form.get('price', '%.2f'|format(service.price) if service else '') }}"></label>
+                </div>
+                <label>Descripci&oacute;n del trabajo<textarea name="description" rows="3" maxlength="255" required>{{ request.form.get('description', service.description if service else '') }}</textarea></label>
+            </section>
+            <section class="service-section">
+                <label class="service-check"><input id="pricing-enabled" name="pricing_enabled" type="checkbox" {% if pricing is not none %}checked{% endif %}> Calcular costos de coloraci&oacute;n</label>
+                <fieldset id="pricing-fields" {% if pricing is none %}hidden disabled{% endif %}>
+                    <div class="service-fields">
+                        <label>Servicio<select id="pricing-kind"><option value="raiz">Retoque de ra&iacute;z</option><option value="completo">Color completo</option><option value="aplicacion">Solo aplicaci&oacute;n</option></select></label>
+                        <label>Largo y abundancia<select id="pricing-length"><option value="corto">Corto</option><option value="melena">Melena</option><option value="largo">Largo</option><option value="extralargo">Extralargo</option><option value="abundante">Extralargo abundante</option></select></label>
+                    </div>
+                    <h2>Insumos consumidos</h2>
+                    <div id="pricing-materials"></div>
+                    <button class="dashboard-ghost" id="add-material" type="button">+ Agregar insumo</button>
+                    <div class="service-fields service-costs">
+                        <label>Mano de obra ($)<input id="pricing-labour" type="number" min="0" max="1000000000" step="0.01" value="0" required></label>
+                        <label>Gastos del sal&oacute;n ($)<input id="pricing-overhead" type="number" min="0" max="1000000000" step="0.01" value="0" required></label>
+                        <label>Otros costos ($)<input id="pricing-other_costs" type="number" min="0" max="1000000000" step="0.01" value="0" required></label>
+                        <label>Margen sobre venta (%)<input id="pricing-margin" type="number" min="0" max="99.99" step="0.01" value="0" required></label>
+                    </div>
+                </fieldset>
+                <input type="hidden" name="pricing_data" id="pricing-data">
+            </section>
+            <section class="service-section">
+                <h2>Descuento de inventario (envases completos)</h2>
+                <div id="used-products-container"></div>
+                <button class="dashboard-ghost" id="add-product-btn" type="button">+ Agregar producto</button>
+            </section>
         </div>
-        <div class="mb-5">
-            <label for="description" class="block text-gray-700 text-sm font-bold mb-2">Descripción del Trabajo:</label>
-            <textarea id="description" name="description" rows="3" 
-                      class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" 
-                      required>{{ service.description if service else '' }}</textarea>
+        <aside class="service-summary" id="pricing-summary" {% if pricing is none %}hidden{% endif %} aria-label="Resumen de costos">
+            <h2>Presupuesto de color</h2>
+            <dl>
+                <div><dt>Insumos</dt><dd id="summary-materials">$ 0,00</dd></div>
+                <div><dt>Mano de obra</dt><dd id="summary-labour">$ 0,00</dd></div>
+                <div><dt>Gastos y otros</dt><dd id="summary-overhead">$ 0,00</dd></div>
+                <div class="service-total"><dt>Costo total</dt><dd id="summary-total">$ 0,00</dd></div>
+                <div class="service-suggested"><dt>Precio sugerido</dt><dd id="summary-price">$ 0,00</dd></div>
+            </dl>
+            <button type="button" id="use-suggested-price" class="dashboard-button">Usar precio sugerido</button>
+            <dl><div><dt>Resultado estimado</dt><dd id="summary-profit">$ 0,00</dd></div><div><dt>Margen resultante</dt><dd id="summary-margin">0 %</dd></div></dl>
+            <p id="pricing-error" class="calendar-error" role="status" tabindex="-1" hidden></p>
+        </aside>
+    </div>
+    <div class="service-actions"><button class="dashboard-button" type="submit">{{ 'Actualizar trabajo' if service else 'Guardar trabajo' }}</button><a class="dashboard-ghost" href="{{ url_for('client_detail', client_id=client.id) }}">Cancelar</a></div>
+</form>
+<template id="material-template">
+    <div class="service-material">
+        <div class="service-material-top"><label>Producto de referencia<select data-product><option value="">Otro insumo</option></select></label><button type="button" class="service-remove" title="Quitar insumo" aria-label="Quitar insumo">&times;</button></div>
+        <label>Insumo<input data-key="label" type="text" maxlength="255" required></label>
+        <div class="service-fields service-material-values">
+            <label>Costo del envase ($)<input data-key="package_cost" type="number" min="0" max="1000000000" step="0.01" required></label>
+            <label>Contenido del envase<input data-key="package_quantity" type="number" min="0.001" max="1000000000" step="0.001" required></label>
+            <label>Cantidad utilizada<input data-key="quantity" type="number" min="0.001" max="1000000000" step="0.001" required></label>
+            <label>Unidad<select data-key="unit"><option value="g">g</option><option value="ml">ml</option><option value="unidad">unidad</option></select></label>
         </div>
-        <div class="mb-6">
-            <label for="price" class="block text-gray-700 text-sm font-bold mb-2">Precio ($):</label>
-            <input type="number" step="0.01" id="price" name="price" 
-                   value="{{ '%.2f' | format(service.price) if service else '' }}" 
-                   class="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" 
-                   required min="0">
-        </div>
-
-        <!-- Productos Utilizados -->
-        <div class="mb-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-2">Productos Utilizados</h3>
-            <div id="used-products-container">
-                <!-- Filas de productos se agregarán aquí dinámicamente -->
-            </div>
-            <button type="button" id="add-product-btn" class="btn bg-gray-600 hover:bg-gray-700 mt-2 text-sm">
-                + Agregar Producto
-            </button>
-        </div>
-
-        <div class="flex items-center justify-between">
-            <button type="submit" class="btn bg-blue-600 hover:bg-blue-700">
-                {{ 'Actualizar Trabajo' if service else 'Agregar Trabajo' }}
-            </button>
-            <a href="{{ url_for('client_detail', client_id=client.id) }}" class="btn bg-gray-500 hover:bg-gray-600">Cancelar</a>
-        </div>
-    </form>
-</div>
-
+        <div class="service-material-top"><label class="service-check"><input data-key="client_supplied" type="checkbox"> Aportado por el cliente</label><output class="material-cost"></output></div>
+    </div>
+</template>
+<script type="application/json" id="service-initial-data">{{ {'pricing': pricing, 'products': products, 'associations': associations}|tojson }}</script>
 {% endblock %}
-
-{% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const addProductBtn = document.getElementById('add-product-btn');
-    const container = document.getElementById('used-products-container');
-    let allProducts = []; // This will store all available products from the API
-
-    // For edit mode, get the existing used products from the service object
-    // The 'tojson' filter is safe here because these are simple association objects
-    const existingAssociations = {{ service.product_associations | tojson if service else '[]' }};
-
-    // Function to create a new product row in the form
-    function createProductRow(association = null) {
-        const productRow = document.createElement('div');
-        productRow.classList.add('flex', 'items-center', 'space-x-2', 'mb-2');
-
-        const selectEl = document.createElement('select');
-        selectEl.name = 'product_ids';
-        selectEl.classList.add('shadow-sm', 'appearance-none', 'border', 'rounded', 'w-full', 'py-2', 'px-3', 'text-gray-700', 'leading-tight', 'focus:outline-none', 'focus:shadow-outline');
-        
-        let options = '<option value="">Seleccione un producto</option>';
-        allProducts.forEach(p => {
-            // In edit mode, if an association is passed, mark the correct product as selected
-            const isSelected = association && p.id === association.product_id;
-            options += `<option value="${p.id}" ${isSelected ? 'selected' : ''}>${p.brand} - ${p.description} (Stock: ${p.stock})</option>`;
-        });
-        selectEl.innerHTML = options;
-
-        const quantityInput = document.createElement('input');
-        quantityInput.type = 'number';
-        quantityInput.name = 'quantities_used';
-        quantityInput.placeholder = 'Cantidad';
-        quantityInput.min = '1';
-        quantityInput.required = true;
-        quantityInput.value = association ? association.quantity : ''; // Pre-fill quantity in edit mode
-        quantityInput.classList.add('shadow-sm', 'appearance-none', 'border', 'rounded', 'w-1/4', 'py-2', 'px-3', 'text-gray-700', 'leading-tight', 'focus:outline-none', 'focus:shadow-outline');
-
-        const removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.textContent = 'Eliminar';
-        removeBtn.classList.add('btn', 'bg-red-600', 'hover:bg-red-700', 'text-sm');
-        removeBtn.onclick = () => productRow.remove();
-
-        productRow.appendChild(selectEl);
-        productRow.appendChild(quantityInput);
-        productRow.appendChild(removeBtn);
-        container.appendChild(productRow);
-    }
-
-    // Fetch products from the API, then render the form state
-    fetch('{{ url_for("products_list_api") }}')
-        .then(response => response.json())
-        .then(data => {
-            allProducts = data;
-            // If in edit mode, render the already associated products
-            if (existingAssociations.length > 0) {
-                existingAssociations.forEach(assoc => {
-                    createProductRow(assoc);
-                });
-            }
-        })
-        .catch(error => console.error('Error al cargar los productos:', error));
-
-    // Event listener for the "Add Product" button
-    addProductBtn.addEventListener('click', () => createProductRow());
-});
-</script>
-{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/service_pricing.js') }}"></script>{% endblock %}

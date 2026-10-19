@@ -153,6 +153,7 @@ class Service(db.Model):
     date = db.Column(db.Date, nullable=False, default=lambda: datetime.now(UTC).date()) # Fecha en que se realizó el servicio
     description = db.Column(db.String(255), nullable=False) # Descripción del trabajo (ej: "Corte de caballero", "Mechas")
     price = db.Column(db.Float, nullable=False) # Precio del servicio
+    cost_breakdown = db.Column(db.JSON, nullable=True)
 
     # Relación para la asociación con productos
     product_associations = db.relationship('UsedProduct', back_populates='service', cascade="all, delete-orphan")

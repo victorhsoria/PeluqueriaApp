@@ -36,6 +36,34 @@
 .app-body .btn { display: inline-flex; align-items: center; justify-content: center; color: white; padding: 10px 16px; min-height: 40px; font-size: 14px; font-weight: 600; }
 .app-body .workspace-heading .dashboard-eyebrow { color: #96324f; }
 .back-link { color: #12695b; font-size: 14px; }
+.service-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 32px; align-items: start; }
+.service-form { max-width: 1200px; margin: 0 auto; }
+.service-form label { display: grid; gap: 6px; min-width: 0; font-size: 14px; font-weight: 600; }
+.service-form input:not([type=checkbox]), .service-form select, .service-form textarea { width: 100%; min-width: 0; padding: 10px; border: 1px solid #87978f; border-radius: 4px; background: white; color: #17211d; }
+.service-form h2 { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+.service-section { padding-bottom: 24px; margin-bottom: 24px; border-bottom: 1px solid #ccd5d1; }
+.service-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.service-form .service-check { display: flex; align-items: center; gap: 10px; }
+.service-form input[type=checkbox] { width: 18px; height: 18px; flex-shrink: 0; accent-color: #12695b; }
+#pricing-fields { margin-top: 24px; min-width: 0; }
+.service-material { padding: 16px 0; border-top: 1px solid #ccd5d1; }
+.service-material-top { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
+.service-material-top > label { flex: 1; }
+.service-material-values { margin-top: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.service-costs { margin-top: 24px; }
+.service-remove { width: 40px; height: 40px; flex: 0 0 40px; border: 1px solid #aebcb5; border-radius: 4px; color: #a82646; font-size: 24px; line-height: 1; background: white; }
+.service-stock-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px 40px; gap: 12px; align-items: end; margin-bottom: 16px; }
+.service-summary { border-top: 3px solid #12695b; padding: 16px 0; position: sticky; top: 95px; }
+.service-summary dl { margin: 16px 0; }
+.service-summary dl > div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; }
+.service-summary dd { font-weight: 600; overflow-wrap: anywhere; text-align: right; }
+.service-total { border-top: 1px solid #ccd5d1; }
+.service-suggested { color: #0b4f44; }
+.service-suggested dd { font-size: 22px; }
+.service-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.service-form button:disabled { opacity: 0.55; cursor: not-allowed; }
+@media (max-width: 900px) { .service-workspace { grid-template-columns: minmax(0, 1fr); gap: 24px; } .service-summary { position: static; } .service-form .service-material-values { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .service-fields { grid-template-columns: minmax(0, 1fr); } .service-stock-row { grid-template-columns: minmax(0, 1fr) 65px 40px; gap: 8px; } }
 .client-tabs { display: flex; gap: 24px; overflow-x: auto; border-bottom: 1px solid #aebcb5; margin-bottom: 24px; }
 .client-tabs a { white-space: nowrap; color: #4d5c58; padding: 12px 2px; border-bottom: 3px solid transparent; font-weight: 600; }
 .client-tabs a[aria-selected="true"] { color: #0b4f44; border-color: #12695b; }

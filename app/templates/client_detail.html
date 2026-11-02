@@ -292,7 +292,12 @@
                 {% for service in client.services | sort(attribute='date', reverse=true) %}
                 <tr class="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ service.date.strftime('%d/%m/%Y') }}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">{{ service.description }}{% if service.cost_breakdown %}<details class="mt-2"><summary class="back-link">Costos de coloraci&oacute;n</summary><div class="text-sm mt-2">Insumos: $ {{ service.cost_breakdown.material_total }}<br>Costo total: $ {{ service.cost_breakdown.total_cost }}<br>Margen objetivo: {{ service.cost_breakdown.margin }} %<br>Precio sugerido: $ {{ service.cost_breakdown.suggested_price }}</div></details>{% endif %}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900">{{ service.description }}
+                        {% if service.cost_breakdown %}<details class="mt-2"><summary class="back-link">Costos de coloraci&oacute;n</summary>
+                        {% if service.cost_breakdown.reference_price is defined %}<div>Precio de referencia: {{ service.cost_breakdown.reference_price|float|currency }}</div>{% endif %}
+                        {% if service.cost_breakdown.get('costs_confirmed', true) %}<div class="text-sm mt-2">Insumos: $ {{ service.cost_breakdown.material_total }}<br>Costo total: $ {{ service.cost_breakdown.total_cost }}<br>Margen objetivo: {{ service.cost_breakdown.margin }} %<br>Precio sugerido: $ {{ service.cost_breakdown.suggested_price }}</div>{% else %}<p>Costos sin verificar.</p>{% endif %}
+                        </details>{% endif %}
+                    </td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ service.price | currency }}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-center">
                         <a href="{{ url_for('edit_service', client_id=client.id, service_id=service.id) }}" class="inline-block bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-md text-xs shadow-sm transition duration-150 ease-in-out mr-2">

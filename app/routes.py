@@ -27,6 +27,7 @@ from uuid import uuid4
 import json
 from app.service_pricing import amount, calculate_color_pricing, refresh_color_pricing
 from app.models import ServiceTemplate
+from app.service_examples import bucles_color_examples
 
 
 CLIENT_EVALUATION_OPTIONS = {
@@ -758,6 +759,22 @@ def service_templates():
                            templates=ServiceTemplate.query.order_by(ServiceTemplate.name).all())
 
 
+@app.route('/service-templates/examples/bucles', methods=['POST'])
+def add_bucles_examples():
+    existing = ServiceTemplate.query.all()
+    keys = {row.pricing.get('example_key') for row in existing}
+    names = {row.name.casefold() for row in existing}
+    created = 0
+    for name, pricing in bucles_color_examples():
+        if pricing['example_key'] in keys or name.casefold() in names:
+            continue
+        db.session.add(ServiceTemplate(name=name, pricing=pricing))
+        created += 1
+    db.session.commit()
+    flash(f'Se agregaron {created} ejemplos. Son precios de referencia; los costos quedan pendientes de verificar.', 'success')
+    return redirect(url_for('service_templates'))
+
+
 def _save_service_template(template=None):
     if request.method == 'POST':
         try:
@@ -826,7 +843,8 @@ def api_refresh_service_pricing():
         products = {product.id: product for product in Product.query.all()}
         updated, changes, warnings = refresh_color_pricing(pricing, products, template)
         return jsonify(pricing=updated, changes=changes, warnings=warnings,
-                       before=pricing['suggested_price'], after=updated['suggested_price'])
+                       before=pricing['suggested_price'] if pricing.get('costs_confirmed', True) else None,
+                       after=updated['suggested_price'] if updated.get('costs_confirmed', True) else None)
     except ValueError as error:
         return jsonify(error=str(error)), 400
 

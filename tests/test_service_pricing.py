@@ -11,6 +11,7 @@ from sqlalchemy import create_engine, inspect, text
 from app import app, db
 from app.models import Client, Product, Service, ServiceTemplate
 from app.service_pricing import calculate_color_pricing
+from app.service_examples import bucles_color_examples
 
 
 def example():
@@ -22,6 +23,23 @@ def example():
 
 
 class PricingTests(unittest.TestCase):
+    def test_reference_prices_are_not_internal_costs(self):
+        examples = list(bucles_color_examples())
+        self.assertEqual(len(examples), 6)
+        self.assertEqual([data['reference_price'] for _, data in examples], ['39999.00', '44999.00', '49999.00', '54999.00', '59999.00', '19999.00'])
+        for _, data in examples:
+            self.assertFalse(data['costs_confirmed'])
+            self.assertEqual(data['materials'], [])
+            self.assertEqual(data['labour'], '0.00')
+            self.assertEqual(calculate_color_pricing(data), data)
+
+    def test_invalid_reference_and_verification_state(self):
+        for value in ['NaN', '-1', 'Infinity', '1000000001']:
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                calculate_color_pricing(dict(example(), reference_price=value))
+        with self.assertRaises(ValueError):
+            calculate_color_pricing(dict(example(), costs_confirmed='false'))
+
     def test_example_and_margin_not_markup(self):
         result = calculate_color_pricing(example())
         self.assertEqual(result['material_total'], '7500.00')
@@ -175,7 +193,7 @@ class ServicePricingRoutesTests(unittest.TestCase):
         self.assertEqual(self.browser.get(f'/clients/{self.client.id}/services/edit/{service.id}').status_code, 200)
         data['price'] = 'NaN'
         response = self.browser.post(self.path, data=data)
-        self.assertNotIn(b'type="checkbox" checked', response.data)
+        self.assertNotIn(b'id="pricing-enabled" name="pricing_enabled" type="checkbox" checked', response.data)
         self.assertEqual(Service.query.count(), 1)
 
     def test_repeated_stock_products_are_combined_and_invalid_edit_rolls_back(self):
@@ -198,6 +216,51 @@ class ServicePricingRoutesTests(unittest.TestCase):
         self.browser.post(self.path, data=data)
         self.assertEqual(Service.query.count(), 0)
         self.assertEqual(self.product.stock, 10)
+
+    def test_bucles_examples_are_idempotent_and_do_not_overwrite(self):
+        own = ServiceTemplate(name='Mi servicio', pricing=calculate_color_pricing(example()))
+        db.session.add(own)
+        db.session.commit()
+        original = deepcopy(own.pricing)
+        self.assertEqual(self.browser.post('/service-templates/examples/bucles').status_code, 302)
+        self.assertEqual(ServiceTemplate.query.count(), 7)
+        seeded = ServiceTemplate.query.filter(ServiceTemplate.id != own.id).first()
+        custom = dict(seeded.pricing, reference_price='35000.00')
+        seeded.name = 'Mi ejemplo adaptado'
+        seeded.pricing = custom
+        db.session.commit()
+        self.browser.post('/service-templates/examples/bucles')
+        self.assertEqual(ServiceTemplate.query.count(), 7)
+        self.assertEqual(seeded.pricing['reference_price'], '35000.00')
+        self.assertEqual(own.pricing, original)
+        self.assertEqual(self.product.stock, 10)
+        self.assertEqual(Service.query.count(), 0)
+
+    def test_unverified_example_does_not_replace_real_costs(self):
+        name, pricing = next(bucles_color_examples())
+        template = ServiceTemplate(name=name, pricing=pricing)
+        db.session.add(template)
+        db.session.commit()
+        config = dict(example(), template_id=template.id)
+        response = self.browser.post('/api/service-pricing/refresh', json=config).get_json()
+        self.assertEqual(response['pricing']['labour'], '10000.00')
+        self.assertEqual(response['pricing']['margin'], '30')
+        self.assertEqual(response['pricing']['reference_price'], '39999.00')
+        self.assertTrue(response['warnings'])
+        self.assertEqual(response['changes'][0]['label'], 'Precio de referencia')
+        self.assertIsNone(response['changes'][0]['before'])
+
+    def test_unverified_example_can_set_price_without_fake_profit(self):
+        name, pricing = next(bucles_color_examples())
+        data = self.form_data()
+        data.update(price='39999', pricing_data=json.dumps(pricing))
+        self.browser.post(self.path, data=data)
+        service = Service.query.one()
+        self.assertFalse(service.cost_breakdown['costs_confirmed'])
+        self.assertEqual(service.price, 39999)
+        response = self.browser.get(f'/clients/{self.client.id}')
+        self.assertIn(b'Costos sin verificar.', response.data)
+        self.assertNotIn(b'Precio sugerido: $ 0.00', response.data)
 
     def test_template_create_edit_and_name_validation(self):
         data = {'template_name': 'Raiz melena', 'pricing_enabled': 'on', 'pricing_data': json.dumps(example())}

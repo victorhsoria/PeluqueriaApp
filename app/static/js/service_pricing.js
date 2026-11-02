@@ -10,10 +10,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const round = value => Math.round((value + Number.EPSILON) * 100) / 100;
     const numeric = value => value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 1e9;
     let suggestion = null;
+    let pricingValid = false;
+    let activeExampleKey = typeof initial.pricing?.example_key === 'string' ? initial.pricing.example_key : null;
     let activeTemplateId = initial.pricing?.template_id || null;
     let pendingRefresh = null;
     function pricingData() {
         const data = { kind: document.getElementById('pricing-kind').value, length: document.getElementById('pricing-length').value };
+        data.costs_confirmed = document.getElementById('pricing-costs-confirmed').checked;
+        const reference = document.getElementById('pricing-reference-price').value;
+        if (reference !== '') data.reference_price = reference;
+        if (activeExampleKey) data.example_key = activeExampleKey;
         if (activeTemplateId && !initial.template_mode) data.template_id = activeTemplateId;
         for (const key of ['labour', 'overhead', 'other_costs', 'margin']) data[key] = document.getElementById(`pricing-${key}`).value;
         data.materials = [...materials.children].map(row => ({
@@ -25,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function recalculate() {
         const data = pricingData();
         let valid = ['labour', 'overhead', 'other_costs', 'margin'].every(key => numeric(data[key])) && Number(data.margin) < 100;
+        if (data.reference_price !== undefined) valid = valid && numeric(data.reference_price);
         let materialTotal = 0;
         data.materials.forEach((row, index) => {
             const costInput = materials.children[index].querySelector('[data-key="package_cost"]');
@@ -39,15 +46,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const labour = round(Number(data.labour) || 0);
         const overhead = round(Number(data.overhead) || 0) + round(Number(data.other_costs) || 0);
         const total = round(materialTotal + labour + overhead);
-        suggestion = valid ? round(total / (1 - Number(data.margin) / 100)) : null;
+        pricingValid = valid;
+        const confirmed = data.costs_confirmed;
+        suggestion = valid && confirmed ? round(total / (1 - Number(data.margin) / 100)) : null;
         document.getElementById('summary-materials').textContent = currency(materialTotal);
         document.getElementById('summary-labour').textContent = currency(labour);
         document.getElementById('summary-overhead').textContent = currency(overhead);
-        document.getElementById('summary-total').textContent = valid ? currency(total) : '\u2014';
+        document.getElementById('summary-total').textContent = valid && confirmed ? currency(total) : (confirmed ? '\u2014' : 'Sin verificar');
         document.getElementById('summary-price').textContent = suggestion === null ? '\u2014' : currency(suggestion);
         const charged = Number(price.value) || 0;
-        document.getElementById('summary-profit').textContent = valid && price.value !== '' ? currency(charged - total) : '\u2014';
-        document.getElementById('summary-margin').textContent = valid && charged > 0 ? `${((charged - total) / charged * 100).toFixed(2)} %` : '\u2014';
+        document.getElementById('summary-profit').textContent = valid && confirmed && price.value !== '' ? currency(charged - total) : '\u2014';
+        document.getElementById('summary-margin').textContent = valid && confirmed && charged > 0 ? `${((charged - total) / charged * 100).toFixed(2)} %` : '\u2014';
+        const hasReference = data.reference_price !== undefined && numeric(data.reference_price);
+        document.getElementById('summary-reference-row').hidden = !hasReference;
+        document.getElementById('summary-reference').textContent = hasReference ? currency(Number(data.reference_price)) : '';
+        const referenceButton = document.getElementById('use-reference-price');
+        if (referenceButton) referenceButton.hidden = !hasReference;
+        document.getElementById('pricing-reference-origin').hidden = !activeExampleKey?.startsWith('bucles-color-20261102-');
         document.getElementById('use-suggested-price').disabled = suggestion === null || suggestion > 1e9;
         const error = document.getElementById('pricing-error');
         error.hidden = valid;
@@ -94,6 +109,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function applyPricing(data) {
         activeTemplateId = data.template_id || null;
+        activeExampleKey = typeof data.example_key === 'string' ? data.example_key : null;
+        document.getElementById('pricing-reference-price').value = data.reference_price ?? '';
+        document.getElementById('pricing-costs-confirmed').checked = data.costs_confirmed !== false;
         materials.replaceChildren();
         document.getElementById('pricing-kind').value = data.kind || 'raiz';
         document.getElementById('pricing-length').value = data.length || 'corto';
@@ -115,7 +133,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     form.addEventListener('input', recalculate); form.addEventListener('change', recalculate);
     document.getElementById('use-suggested-price').addEventListener('click', () => { if (suggestion !== null) { price.value = suggestion.toFixed(2); recalculate(); } });
-    form.addEventListener('submit', event => { recalculate(); if (enabled.checked && suggestion === null) { event.preventDefault(); document.getElementById('pricing-error').focus(); } });
+    form.addEventListener('submit', event => { recalculate(); if (enabled.checked && !pricingValid) { event.preventDefault(); document.getElementById('pricing-error').focus(); } });
+    document.getElementById('use-reference-price')?.addEventListener('click', () => {
+        const value = document.getElementById('pricing-reference-price').value;
+        if (numeric(value)) { price.value = Number(value).toFixed(2); recalculate(); }
+    });
     const status = document.getElementById('pricing-template-status');
     const templateSelect = document.getElementById('service-template-select');
     const applyTemplate = document.getElementById('apply-service-template');
@@ -143,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const refresh = document.getElementById('refresh-pricing');
     refresh.addEventListener('click', async () => {
         recalculate();
-        if (suggestion === null) { document.getElementById('pricing-error').focus(); return; }
+        if (!pricingValid) { document.getElementById('pricing-error').focus(); return; }
         refresh.disabled = true;
         const requested = JSON.stringify(pricingData());
         try {
@@ -159,10 +181,13 @@ document.addEventListener('DOMContentLoaded', () => {
             container.append(header);
             for (const change of result.changes) {
                 const row = document.createElement('div'); row.className = 'pricing-change';
-                for (const value of [change.label, change.percent ? `${change.before} %` : currency(Number(change.before)), change.percent ? `${change.after} %` : currency(Number(change.after))]) { const span = document.createElement('span'); span.textContent = value; row.append(span); }
+                const formatChange = value => value == null ? '\u2014' : (change.percent ? `${value} %` : currency(Number(value)));
+                for (const value of [change.label, formatChange(change.before), formatChange(change.after)]) { const span = document.createElement('span'); span.textContent = value; row.append(span); }
                 container.append(row);
             }
-            document.getElementById('pricing-refresh-totals').textContent = result.changes.length ? `Precio sugerido: ${currency(Number(result.before))} \u2192 ${currency(Number(result.after))}` : 'No hay cambios de costos.';
+            const beforePrice = result.before == null ? '\u2014' : currency(Number(result.before));
+            const afterPrice = result.after == null ? '\u2014' : currency(Number(result.after));
+            document.getElementById('pricing-refresh-totals').textContent = result.changes.length ? `Precio sugerido: ${beforePrice} \u2192 ${afterPrice}` : 'No hay cambios de costos.';
             document.getElementById('pricing-refresh-warnings').textContent = result.warnings.join(' ');
             document.getElementById('confirm-pricing-refresh').disabled = !result.changes.length;
             dialog.showModal();

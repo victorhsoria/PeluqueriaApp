@@ -24,9 +24,11 @@
                 <fieldset id="pricing-fields" {% if pricing is none %}hidden disabled{% endif %}>
                     <div class="service-fields">
                         <label>Servicio<select id="pricing-kind"><option value="raiz">Retoque de ra&iacute;z</option><option value="completo">Color completo</option><option value="aplicacion">Solo aplicaci&oacute;n</option></select></label>
-                        <label>Largo y abundancia<select id="pricing-length"><option value="corto">Corto</option><option value="melena">Melena</option><option value="largo">Largo</option><option value="extralargo">Extralargo</option><option value="abundante">Extralargo abundante</option></select></label>
+                        <label>Largo y abundancia<select id="pricing-length"><option value="corto">Corto</option><option value="melena">Melena</option><option value="largo">Largo</option><option value="extralargo">Extralargo</option><option value="abundante">Extralargo abundante</option><option value="todos">Todos los largos</option></select></label>
                     </div>
                     <h2>Insumos consumidos</h2>
+                    <div class="service-fields"><label>Precio de referencia ($)<input id="pricing-reference-price" type="number" min="0" max="1000000000" step="0.01"></label><label class="service-check"><input id="pricing-costs-confirmed" type="checkbox" checked> Costos verificados</label></div>
+                    <p id="pricing-reference-origin" class="back-link" hidden>Origen del ejemplo: <a href="https://www.bucles.com.ar/servicios/" target="_blank" rel="noopener noreferrer">Bucles</a> &middot; &Iacute;ndice del buscador consultado el 02/11/2026 &middot; Vigencia no confirmada</p>
                     <div id="pricing-materials"></div>
                     <button class="dashboard-ghost" id="add-material" type="button">+ Agregar insumo</button>
                     <div class="service-fields service-costs">
@@ -49,6 +51,7 @@
         <aside class="service-summary" id="pricing-summary" {% if pricing is none %}hidden{% endif %} aria-label="Resumen de costos">
             <h2>Presupuesto de color</h2>
             <dl>
+                <div id="summary-reference-row" hidden><dt>Precio de referencia</dt><dd id="summary-reference"></dd></div>
                 <div><dt>Insumos</dt><dd id="summary-materials">$ 0,00</dd></div>
                 <div><dt>Mano de obra</dt><dd id="summary-labour">$ 0,00</dd></div>
                 <div><dt>Gastos y otros</dt><dd id="summary-overhead">$ 0,00</dd></div>
@@ -56,6 +59,7 @@
                 <div class="service-suggested"><dt>Precio sugerido</dt><dd id="summary-price">$ 0,00</dd></div>
             </dl>
             <button type="button" id="use-suggested-price" class="dashboard-button" {% if template_mode %}hidden{% endif %}>Usar precio sugerido</button>
+            {% if not template_mode %}<button type="button" id="use-reference-price" class="dashboard-ghost" hidden>Usar precio de referencia</button>{% endif %}
             <dl {% if template_mode %}hidden{% endif %}><div><dt>Resultado estimado</dt><dd id="summary-profit">$ 0,00</dd></div><div><dt>Margen resultante</dt><dd id="summary-margin">0 %</dd></div></dl>
             <p id="pricing-error" class="calendar-error" role="status" tabindex="-1" hidden></p>
         </aside>

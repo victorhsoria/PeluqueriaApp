@@ -57,7 +57,7 @@ def calculate_color_pricing(data):
         raise ValueError('El margen debe ser menor al 100%.')
     kind = data.get('kind', 'raiz')
     length = data.get('length', 'corto')
-    if kind not in ('raiz', 'completo', 'aplicacion') or length not in ('corto', 'melena', 'largo', 'extralargo', 'abundante'):
+    if kind not in ('raiz', 'completo', 'aplicacion') or length not in ('corto', 'melena', 'largo', 'extralargo', 'abundante', 'todos'):
         raise ValueError('Tipo de coloracion o largo invalido.')
     material_total = sum((Decimal(row['cost']) for row in materials), Decimal(0))
     total = Decimal(money(material_total + labour + overhead + other))
@@ -72,6 +72,18 @@ def calculate_color_pricing(data):
     }
     if template_id is not None:
         result['template_id'] = template_id
+    confirmed = data.get('costs_confirmed', True)
+    if not isinstance(confirmed, bool):
+        raise ValueError('Estado de costos invalido.')
+    if not confirmed:
+        result['costs_confirmed'] = False
+    if data.get('reference_price') not in (None, ''):
+        result['reference_price'] = money(amount(data['reference_price'], 'Precio de referencia'))
+    example_key = data.get('example_key')
+    if example_key is not None:
+        if not isinstance(example_key, str) or len(example_key) > 80:
+            raise ValueError('Referencia de ejemplo invalida.')
+        result['example_key'] = example_key
     return result
 
 
@@ -92,10 +104,17 @@ def refresh_color_pricing(data, products, template=None):
         row['package_cost'] = new_cost
     if template is not None:
         defaults = calculate_color_pricing(template.pricing)
-        for key, label in [('labour', 'Mano de obra'), ('overhead', 'Gastos del salon'), ('other_costs', 'Otros costos'), ('margin', 'Margen sobre venta')]:
+        fields = [('labour', 'Mano de obra'), ('overhead', 'Gastos del salon'), ('other_costs', 'Otros costos'), ('margin', 'Margen sobre venta')] if defaults.get('costs_confirmed', True) else []
+        if not defaults.get('costs_confirmed', True):
+            warnings.append('Plantilla sin costos verificados; se conservan los costos del trabajo.')
+        for key, label in fields:
             if Decimal(pricing[key]) != Decimal(defaults[key]):
                 changes.append({'label': label, 'before': pricing[key], 'after': defaults[key], 'percent': key == 'margin'})
             pricing[key] = defaults[key]
+        if 'reference_price' in defaults:
+            if pricing.get('reference_price') != defaults['reference_price']:
+                changes.append({'label': 'Precio de referencia', 'before': pricing.get('reference_price'), 'after': defaults['reference_price'], 'percent': False})
+            pricing['reference_price'] = defaults['reference_price']
     elif pricing.get('template_id') is not None:
         warnings.append('La plantilla original ya no existe; se conservan mano de obra, gastos y margen.')
     return calculate_color_pricing(pricing), changes, warnings

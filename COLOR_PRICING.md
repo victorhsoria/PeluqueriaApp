@@ -1,5 +1,25 @@
 # Costos de coloracion
 
+## Ejemplos de precios de venta
+
+Servicios > Cargar ejemplos Bucles agrega seis plantillas de referencia de color:
+corto 39999, melena 44999, largo 49999, extralargo 54999,
+extralargo abundante 59999 y solo aplicacion 19999 (pesos argentinos).
+Fuente: https://www.bucles.com.ar/servicios/
+Son datos del indice del buscador consultado el 2026-11-02; la lectura directa
+del sitio fallo y NO se confirmo su vigencia. No se actualizan desde Internet.
+Las plantillas se pueden editar y la carga repetida no reemplaza las existentes.
+
+Esos importes son precios de venta de referencia, no costos de productos ni de
+mano de obra. Los ejemplos no inventan formulas, cantidades ni margenes.
+Se crean con "Costos verificados" desmarcado; no se muestran ganancias ni un
+precio calculado hasta que el usuario ingrese y verifique sus propios costos.
+"Usar precio de referencia" copia el importe al precio a cobrar, por separado
+de "Usar precio sugerido". Ambos requieren una accion explicita del usuario.
+El precio de referencia queda guardado junto al trabajo, sin modificar su costo.
+La actualizacion de precios no reemplaza los costos reales por los ceros de una
+plantilla de ejemplo que todavia no tenga costos verificados.
+
 ## Plantillas de servicios
 
 En Servicios > Nueva plantilla, configurar un nombre (por ejemplo, "Raiz melena"),

@@ -77,7 +77,20 @@
 .price-import-table td:first-child { min-width: 145px; }
 .price-import-table td span { color: #4d5c58; font-size: 12px; }
 .price-import-pagination { align-items: center; }
+.price-new-fields { width: 280px; max-width: 100%; margin-top: 12px; }
+.price-new-fields label { display: grid; gap: 4px; margin-bottom: 10px; font-size: 13px; font-weight: 600; }
+.price-new-fields input { width: 100%; min-width: 0; padding: 8px; border: 1px solid #87978f; border-radius: 4px; background: white; }
 @media (max-width: 640px) { .price-import-filters { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+    .price-import-table, .price-import-table tbody { display: block; min-width: 0; }
+    .price-import-table thead { display: none; }
+    .price-import-table tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-bottom: 2px solid #87978f; }
+    .price-import-table td { display: block; border: 0; overflow-wrap: anywhere; }
+    .price-import-table td::before { content: attr(data-label); display: block; font-size: 12px; color: #4d5c58; font-weight: 600; margin-bottom: 6px; }
+    .price-import-table td:first-child, .price-import-table td:nth-child(2) { min-width: 0; }
+    .price-import-table td:nth-child(-n+3), .price-import-table td:last-child, .price-import-table td[colspan] { grid-column: 1 / -1; }
+    .price-import-table select, .price-new-fields { width: 100%; }
+}
 .service-template-picker { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 24px; }
 .service-template-picker > label { flex: 1 1 220px; }
 .service-template-row { display: grid; grid-template-columns: minmax(0, 1fr) 180px 100px 160px; gap: 20px; align-items: center; padding: 20px 0; border-bottom: 1px solid #ccd5d1; }

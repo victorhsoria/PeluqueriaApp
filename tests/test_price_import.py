@@ -220,6 +220,90 @@ class PriceImportRoutesTests(unittest.TestCase):
         self.assertEqual(self.product.stock, 4)
         self.assertEqual(self.product.wholesale_price, 200)
 
+    def select_new(self, token, index=0, description='Champu nuevo', percentage='25'):
+        return self.browser.post(self.path, data={'action': 'review', 'token': token,
+            f'row_{index}': 'new', f'new_brand_{index}': 'Marca',
+            f'new_description_{index}': description, f'new_percentage_{index}': percentage})
+
+    def test_create_selected_product_with_zero_stock_and_remember_it(self):
+        token, _ = self.upload(workbook_bytes(description='Champu proveedor', code='new-123'))
+        self.select_new(token)
+        self.assertEqual(Product.query.count(), 1)
+        preview = self.browser.get(self.path)
+        self.assertIn(b'Champu nuevo', preview.data)
+        self.assertIn(b'250,00', preview.data)
+        self.browser.post(self.path, data={'action': 'apply', 'token': token, 'stock': '999', 'price': '1'})
+        created = Product.query.filter_by(description='Champu nuevo').one()
+        self.assertEqual(created.stock, 0)
+        self.assertEqual(created.wholesale_price, 200)
+        self.assertEqual(created.sale_percentage, 25)
+        self.assertEqual(created.total_sale_price, 250)
+        self.assertEqual(self.product.stock, 5)
+        token, next_draft = self.upload(workbook_bytes(description='Proveedor renombrado', code='new-123', price=300))
+        self.assertEqual(next_draft['rows'][0]['product_id'], created.id)
+        created.stock = 7
+        db.session.commit()
+        self.browser.post(self.path, data={'action': 'apply', 'token': token})
+        db.session.expire_all()
+        self.assertEqual(Product.query.count(), 2)
+        self.assertEqual(created.stock, 7)
+        self.assertEqual(created.total_sale_price, 375)
+
+    def test_creating_existing_product_is_rejected(self):
+        token, _ = self.upload()
+        self.select_new(token, description=self.product.description)
+        self.browser.post(self.path, data={'action': 'apply', 'token': token})
+        self.assertEqual(Product.query.count(), 1)
+        self.assertEqual(self.product.wholesale_price, 100)
+        self.assertEqual(ProductPriceLink.query.count(), 0)
+
+    def test_mixed_batch_updates_existing_and_creates_only_selected_new(self):
+        token, _ = self.upload(workbook_bytes(count=3))
+        self.select_new(token, index=1, description='Producto nuevo elegido', percentage='50')
+        self.browser.post(self.path, data={'action': 'apply', 'token': token})
+        db.session.expire_all()
+        self.assertEqual(Product.query.count(), 2)
+        created = Product.query.filter_by(description='Producto nuevo elegido').one()
+        self.assertEqual(created.stock, 0)
+        self.assertEqual(created.total_sale_price, 300)
+        self.assertEqual(self.product.wholesale_price, 200)
+        self.assertEqual(self.product.stock, 5)
+        self.assertEqual(ProductPriceLink.query.count(), 2)
+
+    def test_duplicate_new_products_roll_back_whole_batch(self):
+        token, _ = self.upload(workbook_bytes(description='Desconocido', count=2))
+        self.select_new(token, index=0, description='Mismo nombre')
+        self.select_new(token, index=1, description='Mismo nombre')
+        self.browser.post(self.path, data={'action': 'apply', 'token': token})
+        self.assertEqual(Product.query.count(), 1)
+        self.assertEqual(ProductPriceLink.query.count(), 0)
+
+    def test_invalid_new_percentage_rolls_back_existing_price_update(self):
+        token, _ = self.upload(workbook_bytes(count=2))
+        self.select_new(token, index=1, percentage='NaN')
+        self.browser.post(self.path, data={'action': 'apply', 'token': token})
+        db.session.expire_all()
+        self.assertEqual(Product.query.count(), 1)
+        self.assertEqual(self.product.wholesale_price, 100)
+        self.assertEqual(ProductPriceLink.query.count(), 0)
+
+    def test_existing_product_added_since_preview_prevents_duplicate_creation(self):
+        token, _ = self.upload(workbook_bytes(description='Champu nuevo', code='new-123'))
+        self.select_new(token)
+        db.session.add(Product(brand='Marca', description='Champu nuevo', wholesale_price=150, sale_percentage=10, total_sale_price=165, stock=3))
+        db.session.commit()
+        self.browser.post(self.path, data={'action': 'apply', 'token': token})
+        self.assertEqual(Product.query.count(), 2)
+        self.assertEqual(ProductPriceLink.query.count(), 0)
+
+    def test_new_selection_requires_review_before_creating(self):
+        token, _ = self.upload(workbook_bytes(description='Nuevo', code='new-123'))
+        self.browser.post(self.path, data={'action': 'apply', 'token': token,
+            'row_0': 'new', 'new_brand_0': 'Marca', 'new_description_0': 'Champu nuevo', 'new_percentage_0': '20'})
+        self.assertEqual(Product.query.count(), 1)
+        self.browser.post(self.path, data={'action': 'apply', 'token': token})
+        self.assertEqual(Product.query.count(), 2)
+
 
 if __name__ == '__main__':
     unittest.main()

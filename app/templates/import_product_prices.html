@@ -9,22 +9,30 @@
 {% if draft %}
 <section class="price-preview">
     <h2>{{ draft.filename }}</h2>
-    <dl class="price-import-stats"><div><dt>Filas v&aacute;lidas</dt><dd>{{ draft.rows|length }}</dd></div><div><dt>Vinculadas</dt><dd>{{ matched }}</dd></div><div><dt>Sin vincular</dt><dd>{{ draft.rows|length - matched }}</dd></div></dl>
+    <dl class="price-import-stats"><div><dt>Filas v&aacute;lidas</dt><dd>{{ draft.rows|length }}</dd></div><div><dt>Actualizar</dt><dd>{{ matched }}</dd></div><div><dt>Crear nuevos</dt><dd>{{ created }}</dd></div><div><dt>Sin seleccionar</dt><dd>{{ draft.rows|length - matched - created }}</dd></div></dl>
     {% if draft.warnings %}<details class="price-import-warnings"><summary>Filas omitidas y advertencias ({{ draft.warnings|length }})</summary><ul>{% for warning in draft.warnings %}<li>{{ warning }}</li>{% endfor %}</ul></details>{% endif %}
     <form method="get" class="service-fields service-form price-import-filters">
         <label>Hoja<select name="sheet"><option value="">Todas las hojas</option>{% for name in draft.sheets %}<option value="{{ name }}" {% if sheet == name %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
-        <label>Estado<select name="status"><option value="matched" {% if status == 'matched' %}selected{% endif %}>Vinculadas</option><option value="unmatched" {% if status == 'unmatched' %}selected{% endif %}>Sin vincular</option><option value="all" {% if status == 'all' %}selected{% endif %}>Todas</option></select></label>
+        <label>Estado<select name="status"><option value="selected" {% if status == 'selected' %}selected{% endif %}>Seleccionados</option><option value="matched" {% if status == 'matched' %}selected{% endif %}>Vinculados existentes</option><option value="new" {% if status == 'new' %}selected{% endif %}>Nuevos seleccionados</option><option value="unmatched" {% if status == 'unmatched' %}selected{% endif %}>Sin seleccionar</option><option value="all" {% if status == 'all' %}selected{% endif %}>Todas</option></select></label>
         <button type="submit" class="dashboard-ghost">Filtrar</button>
     </form>
     <form method="post" id="price-review-form">
         <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="status" value="{{ status }}"><input type="hidden" name="sheet" value="{{ sheet }}">
+        <input type="hidden" name="current_page" value="{{ page }}">
         <div class="price-table-scroll"><table class="price-import-table"><thead><tr><th>Hoja / fecha</th><th>Producto en Excel</th><th>Producto del inventario</th><th>Mayorista anterior</th><th>Mayorista nuevo</th><th>Venta (%)</th><th>Venta nueva</th><th>Coincidencia</th></tr></thead><tbody>
         {% for row in rows %}<tr>
-            <td>{{ row.sheet }}<br>{{ row.list_date or 'Sin fecha' }}<br>Fila {{ row.row }}</td>
-            <td>{{ row.description }}<br><span>{{ row.brand }}{% if row.barcode %} &middot; {{ row.barcode }}{% endif %}</span></td>
-            <td><select name="row_{{ row.index }}" aria-label="Producto para fila {{ row.index }}"><option value="">No actualizar</option>{% for product in products %}<option value="{{ product.id }}" {% if row.product_id == product.id %}selected{% endif %}>#{{ product.id }} {{ product.brand }} - {{ product.description }}</option>{% endfor %}</select></td>
-            <td>{% if row.expected %}{{ row.expected.wholesale_price|float|currency }}{% else %}&mdash;{% endif %}</td>
-            <td>{{ row.price|float|currency }}</td><td>{{ row.expected.sale_percentage if row.expected else '\u2014' }}</td><td>{% if row.sale_preview %}{{ row.sale_preview|float|currency }}{% else %}&mdash;{% endif %}</td><td>{{ row.reason }}{% if not row.remember %}<br>C&oacute;digo repetido en el archivo{% endif %}</td>
+            <td data-label="Hoja / fecha">{{ row.sheet }}<br>{{ row.list_date or 'Sin fecha' }}<br>Fila {{ row.row }}</td>
+            <td data-label="Producto en Excel">{{ row.description }}<br><span>{{ row.brand }}{% if row.barcode %} &middot; {{ row.barcode }}{% endif %}</span></td>
+            <td data-label="Acci&oacute;n / producto"><select class="price-target-select" name="row_{{ row.index }}" aria-label="Producto para fila {{ row.index }}"><option value="">No importar</option>{% if row.can_create %}<option value="new" {% if row.get('create') %}selected{% endif %}>Crear producto nuevo (stock 0)</option>{% endif %}{% for product in products %}<option value="{{ product.id }}" {% if row.product_id == product.id %}selected{% endif %}>#{{ product.id }} {{ product.brand }} - {{ product.description }}</option>{% endfor %}</select>
+                {% if row.can_create %}<fieldset class="price-new-fields" {% if not row.get('create') %}hidden disabled{% endif %}>
+                    <label>Marca nueva<input name="new_brand_{{ row.index }}" maxlength="100" required value="{{ row.get('new_brand', row.brand) }}"></label>
+                    <label>Descripci&oacute;n nueva<input name="new_description_{{ row.index }}" maxlength="255" required value="{{ row.get('new_description', row.description) }}"></label>
+                    <label>Venta nuevos (%)<input type="number" min="0" max="1000000" step="0.01" name="new_percentage_{{ row.index }}" required value="{{ row.get('new_percentage', '') }}"></label>
+                    <span>Stock inicial: 0</span>
+                </fieldset>{% endif %}
+            </td>
+            <td data-label="Mayorista anterior">{% if row.expected %}{{ row.expected.wholesale_price|float|currency }}{% else %}&mdash;{% endif %}</td>
+            <td data-label="Mayorista nuevo">{{ row.price|float|currency }}</td><td data-label="Venta (%)">{{ row.get('new_percentage', '\u2014') if row.get('create') else (row.expected.sale_percentage if row.expected else '\u2014') }}</td><td data-label="Venta nueva">{% if row.sale_preview %}{{ row.sale_preview|float|currency }}{% else %}&mdash;{% endif %}</td><td data-label="Coincidencia">{{ row.reason }}{% if not row.remember %}<br>C&oacute;digo repetido en el archivo{% endif %}</td>
         </tr>{% else %}<tr><td colspan="8">No hay filas para este filtro.</td></tr>{% endfor %}
         </tbody></table></div>
         <div class="service-actions price-import-pagination">
@@ -33,8 +41,9 @@
             <span>P&aacute;gina {{ page }} de {{ pages }}</span>
             {% if page < pages %}<button class="dashboard-ghost" name="page_to" value="{{ page + 1 }}" type="submit" formaction="{{ url_for('import_product_prices', action='review') }}">Siguiente &rarr;</button>{% endif %}
         </div>
-        <div class="service-actions"><button class="dashboard-button" name="action" value="apply" type="submit" onclick="return confirm('Actualizar todos los productos vinculados de la vista previa? Se conservaran el stock y el porcentaje de venta.');">Confirmar y actualizar precios</button><button class="dashboard-ghost" name="action" value="discard" type="submit">Descartar vista previa</button></div>
+        <div class="service-actions"><button class="dashboard-button" name="action" value="apply" type="submit" onclick="return confirm('Confirmar la importacion de todos los seleccionados? Los nuevos se crearan con stock 0; los existentes conservaran su stock y porcentaje.');">Confirmar importaci&oacute;n</button><button class="dashboard-ghost" name="action" value="discard" type="submit" formnovalidate>Descartar vista previa</button></div>
     </form>
 </section>
 {% endif %}
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/price_import.js') }}"></script>{% endblock %}

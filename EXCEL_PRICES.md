@@ -30,10 +30,30 @@ Cambiar filtros sin guardar puede perder los cambios de la pagina actual.
 Si se cambian vinculos al confirmar, primero se guarda la seleccion y se vuelve
 a la vista previa para revisar los importes correctos antes de confirmar otra vez.
 
-La confirmacion aplica TODAS las filas vinculadas de la vista previa, no solo
-la pagina visible. No se crean productos nuevos. Seleccionar "No actualizar"
-para omitir filas. No se permite aplicar dos filas al mismo producto.
+La confirmacion aplica TODAS las filas seleccionadas de la vista previa, no solo
+la pagina visible. Seleccionar "No importar" para omitir filas. No se permite
+aplicar dos filas al mismo producto.
 Los codigos repetidos no se recuerdan como equivalencias automaticas.
+
+## Productos nuevos
+
+En una fila sin coincidencia, elegir "Crear producto nuevo (stock 0)".
+Revisar o ajustar marca y descripcion e ingresar el porcentaje de venta deseado
+(0 es valido si se quiere vender al costo). Guardar seleccion muestra el precio
+de venta calculado antes de confirmar. Tambien se puede filtrar por
+"Nuevos seleccionados" o "Seleccionados" para revisar el lote mixto.
+
+Solo se crean las filas seleccionadas expresamente. El stock inicial siempre
+es cero, no se toman cantidades del Excel y no se carga automaticamente todo
+el catalogo. Los existentes conservan su porcentaje y stock. Se recuerdan los
+codigos unicos para que proximas listas actualicen el registro creado.
+
+Se rechazan duplicados por marca/descripcion normalizadas o vinculo conocido,
+tanto contra el inventario actual como entre nuevos del mismo lote. Las
+descripciones diferentes de un mismo articulo deben vincularse manualmente a
+su registro existente para evitar duplicados semanticos. Una fila con un ID
+interno inexistente no puede crear un producto nuevo con ese ID.
+Si hay un conflicto, se revierte todo el lote, incluidas las altas.
 
 Se actualiza el precio mayorista y se recalcula el precio de venta con el
 porcentaje actual del producto, redondeando a centavos. No se cambia el stock,

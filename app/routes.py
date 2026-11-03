@@ -28,7 +28,7 @@ import json
 from app.service_pricing import amount, calculate_color_pricing, refresh_color_pricing
 from app.models import ServiceTemplate
 from app.service_examples import bucles_color_examples
-from app.price_import import MAX_UPLOAD, read_price_workbook, match_prices, save_draft, load_draft, apply_prices, product_signature, sale_price
+from app.price_import import MAX_UPLOAD, read_price_workbook, match_prices, save_draft, load_draft, apply_prices, product_signature, sale_price, new_product_values
 import hmac
 import time
 
@@ -182,16 +182,22 @@ def import_product_prices():
                     continue
                 try:
                     index = int(key[4:])
-                    product_id = int(value) if value else None
+                    creating = value == 'new'
+                    product_id = int(value) if value and not creating else None
                 except ValueError:
                     raise ValueError('Seleccion de producto invalida.') from None
                 if not 0 <= index < len(draft['rows']) or (product_id is not None and product_id not in products):
                     raise ValueError('Seleccion de producto invalida.')
                 row = draft['rows'][index]
-                if product_id != row.get('product_id'):
+                new_values = {}
+                if creating:
+                    new_values = {field: request.form.get(f'{field}_{index}', row.get(field, fallback)).strip()
+                                  for field, fallback in [('new_brand', row['brand']), ('new_description', row['description']), ('new_percentage', '')]}
+                if product_id != row.get('product_id') or creating != row.get('create', False) or any(row.get(field) != val for field, val in new_values.items()):
                     mapping_changed = True
-                    row.update(product_id=product_id, expected=product_signature(products[product_id]) if product_id else None,
-                               reason='Seleccion manual' if product_id else 'Ignorar')
+                    row.update(product_id=product_id, create=creating,
+                               expected=product_signature(products[product_id]) if product_id else None,
+                               reason='Crear producto nuevo' if creating else ('Seleccion manual' if product_id else 'Ignorar'), **new_values)
             if action not in ('review', 'apply', 'discard'):
                 raise ValueError('Accion no valida.')
             if action == 'discard':
@@ -200,15 +206,23 @@ def import_product_prices():
             save_draft(draft, token)
             if action == 'apply':
                 if mapping_changed:
-                    flash('Vinculos actualizados. Revisa los importes de la vista previa y vuelve a confirmar.', 'warning')
+                    flash('Seleccion actualizada. Revisa los importes de la vista previa y vuelve a confirmar.', 'warning')
                     return redirect(url_for('import_product_prices'))
                 count = apply_prices(draft)
+                created = sum(bool(row.get('create')) for row in draft['rows'])
                 session.pop('product_price_import', None)
-                flash(f'Se actualizaron {count} precios. Se conservaron el stock y los porcentajes de venta.', 'success')
+                flash(f'Se actualizaron {count - created} precios y se crearon {created} productos con stock inicial cero. Los productos existentes conservaron su stock y porcentaje de venta.', 'success')
                 return redirect(url_for('products'))
             flash('Seleccion guardada.', 'success')
-            return redirect(url_for('import_product_prices', page=request.form.get('page_to', 1),
-                                    status=request.form.get('status', 'matched'), sheet=request.form.get('sheet', '')))
+            target_page = request.form.get('page_to', 1, type=int)
+            current_page = request.form.get('current_page', 1, type=int)
+            target_status = request.form.get('status', 'selected')
+            if mapping_changed and not request.form.get('page_to'):
+                target_status = 'selected'
+            elif mapping_changed and target_status != 'all' and target_page > current_page:
+                target_page = current_page
+            return redirect(url_for('import_product_prices', page=target_page,
+                                    status=target_status, sheet=request.form.get('sheet', '')))
         except ValueError as error:
             db.session.rollback()
             flash(str(error), 'danger')
@@ -223,25 +237,35 @@ def import_product_prices():
             session.pop('product_price_import', None)
             flash(str(error), 'warning')
     matched = sum(bool(row.get('product_id')) for row in draft['rows']) if draft else 0
-    status = request.values.get('status', 'matched' if matched else 'unmatched')
-    if status not in ('all', 'matched', 'unmatched'):
-        status = 'matched'
+    created = sum(bool(row.get('create')) for row in draft['rows']) if draft else 0
+    status = request.values.get('status', 'selected' if matched or created else 'unmatched')
+    if status not in ('all', 'matched', 'unmatched', 'selected', 'new'):
+        status = 'selected'
     sheet = request.values.get('sheet', '')
     visible = []
     if draft:
-        visible = [row for row in draft['rows'] if (not sheet or row['sheet'] == sheet)
-                   and (status == 'all' or bool(row.get('product_id')) == (status == 'matched'))]
+        def visible_status(row):
+            if status == 'all':
+                return True
+            if status == 'matched':
+                return bool(row.get('product_id'))
+            if status == 'new':
+                return bool(row.get('create'))
+            selected = bool(row.get('product_id') or row.get('create'))
+            return selected if status == 'selected' else not selected
+        visible = [row for row in draft['rows'] if (not sheet or row['sheet'] == sheet) and visible_status(row)]
     pages = max(1, (len(visible) + 49) // 50)
     page = min(pages, max(1, request.values.get('page', 1, type=int)))
     page_rows = visible[(page - 1) * 50:page * 50]
     for row in page_rows:
+        row['can_create'] = bool(row.get('create') or (not row.get('product_id') and row.get('explicit_id') is None and row.get('reason') != 'Coincidencia ambigua'))
         try:
-            row['sale_preview'] = str(sale_price(row['price'], row['expected']['sale_percentage'])) if row.get('expected') else None
+            row['sale_preview'] = str(new_product_values(row)['total_sale_price']) if row.get('create') else (str(sale_price(row['price'], row['expected']['sale_percentage'])) if row.get('expected') else None)
         except ValueError:
             row['sale_preview'] = None
     return render_template('import_product_prices.html', title='Actualizar precios desde Excel',
                            draft=draft, token=token, rows=page_rows,
-                           matched=matched, page=page, pages=pages, status=status, sheet=sheet,
+                           matched=matched, created=created, page=page, pages=pages, status=status, sheet=sheet,
                            products=Product.query.order_by(Product.brand, Product.description).all())
 
 @app.route('/products')

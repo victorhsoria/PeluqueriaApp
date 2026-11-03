@@ -142,10 +142,33 @@ def product_signature(product):
 
 
 def sale_price(wholesale, percentage):
-    percentage = Decimal(str(percentage))
+    try:
+        percentage = Decimal(str(percentage))
+    except InvalidOperation:
+        raise ValueError('Ingresa un porcentaje de venta valido.') from None
     if not percentage.is_finite() or percentage < 0 or percentage > 1000000:
         raise ValueError('Un producto tiene un porcentaje de venta invalido.')
     return (Decimal(wholesale) * (1 + percentage / 100)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+def brand_options(brand):
+    return {normalize(brand, True)} | {normalize(part, True) for part in re.split(r'[/|]', brand)}
+
+
+def new_product_values(row):
+    if row.get('explicit_id') is not None:
+        raise ValueError('Una fila con ID interno debe vincularse a un producto existente.')
+    brand = row.get('new_brand', row['brand'])
+    description = row.get('new_description', row['description'])
+    if not isinstance(brand, str) or not isinstance(description, str):
+        raise ValueError('La marca y la descripcion del producto nuevo no son validas.')
+    brand, description = brand.strip(), description.strip()
+    if not brand or len(brand) > 100 or not description or len(description) > 255:
+        raise ValueError('Los productos nuevos requieren marca (hasta 100 caracteres) y descripcion (hasta 255).')
+    percentage = row.get('new_percentage')
+    sale = sale_price(row['price'], percentage)
+    return {'brand': brand, 'description': description, 'sale_percentage': float(Decimal(str(percentage))),
+            'wholesale_price': float(Decimal(parse_price(row['price']))), 'total_sale_price': float(sale), 'stock': 0}
 
 
 def match_prices(parsed):
@@ -166,9 +189,9 @@ def match_prices(parsed):
             target = by_id.get(links[row['source_key']])
             reason = 'Vinculo guardado' if target else reason
         if target is None and row['explicit_id'] is None:
-            brand_options = {normalize(part, True) for part in re.split(r'[/|]', row['brand'])}
+            options = brand_options(row['brand'])
             candidates = [product for product in by_description[normalize(row['description'])]
-                          if normalize(product.brand, True) and normalize(product.brand, True) in brand_options]
+                          if normalize(product.brand, True) and normalize(product.brand, True) in options]
             if len(candidates) == 1:
                 target, reason = candidates[0], 'Marca y descripcion'
             elif len(candidates) > 1:
@@ -212,33 +235,49 @@ def load_draft(token):
 
 
 def apply_prices(draft):
-    selected = [row for row in draft['rows'] if row.get('product_id')]
+    selected = [row for row in draft['rows'] if row.get('product_id') or row.get('create')]
     if not selected:
-        raise ValueError('Selecciona al menos un producto para actualizar.')
-    ids = [row['product_id'] for row in selected]
+        raise ValueError('Selecciona al menos un producto para actualizar o crear.')
+    ids = [row['product_id'] for row in selected if row.get('product_id')]
     if len(ids) != len(set(ids)):
         raise ValueError('Hay varias filas vinculadas al mismo producto. Conserva solo una seleccion por producto.')
     try:
+        names = {(normalize(product.brand, True), normalize(product.description)) for product in Product.query.all()}
+        linked = {link.source_key for link in ProductPriceLink.query.all()}
         for row in selected:
-            product = db.session.get(Product, row['product_id'])
-            expected = row['expected']
-            if product is None or product_signature(product) != expected:
-                raise ValueError('Un producto cambio desde la vista previa. Carga nuevamente el Excel antes de aplicar.')
-            wholesale = Decimal(parse_price(row['price']))
-            sale = sale_price(wholesale, product.sale_percentage)
-            result = db.session.execute(update(Product).where(
-                Product.id == product.id, Product.wholesale_price == float(expected['wholesale_price']),
-                Product.sale_percentage == float(expected['sale_percentage']),
-                Product.brand == expected['brand'], Product.description == expected['description'],
-            ).values(wholesale_price=float(wholesale), total_sale_price=float(sale)), execution_options={'synchronize_session': False})
-            if result.rowcount != 1:
-                raise ValueError('El producto cambio durante la actualizacion. No se aplicaron los precios.')
+            if row.get('create'):
+                if row.get('product_id'):
+                    raise ValueError('Una fila no puede crear y actualizar un producto a la vez.')
+                values = new_product_values(row)
+                name = (normalize(values['brand'], True), normalize(values['description']))
+                source_names = {(brand, normalize(row['description'])) for brand in brand_options(row['brand'])}
+                if name in names or names.intersection(source_names) or (row['remember'] and row['source_key'] in linked):
+                    raise ValueError(f'El producto "{values["description"]}" ya existe o esta vinculado. Carga nuevamente el Excel para evitar duplicados.')
+                product = Product(**values)
+                db.session.add(product)
+                db.session.flush()
+                names.add(name)
+            else:
+                product = db.session.get(Product, row['product_id'])
+                expected = row['expected']
+                if product is None or product_signature(product) != expected:
+                    raise ValueError('Un producto cambio desde la vista previa. Carga nuevamente el Excel antes de aplicar.')
+                wholesale = Decimal(parse_price(row['price']))
+                sale = sale_price(wholesale, product.sale_percentage)
+                result = db.session.execute(update(Product).where(
+                    Product.id == product.id, Product.wholesale_price == float(expected['wholesale_price']),
+                    Product.sale_percentage == float(expected['sale_percentage']),
+                    Product.brand == expected['brand'], Product.description == expected['description'],
+                ).values(wholesale_price=float(wholesale), total_sale_price=float(sale)), execution_options={'synchronize_session': False})
+                if result.rowcount != 1:
+                    raise ValueError('El producto cambio durante la actualizacion. No se aplicaron los precios.')
             if row['remember']:
                 link = db.session.get(ProductPriceLink, row['source_key'])
                 if link:
                     link.product_id = product.id
                 else:
                     db.session.add(ProductPriceLink(source_key=row['source_key'], product_id=product.id))
+                linked.add(row['source_key'])
         db.session.commit()
     except Exception:
         db.session.rollback()

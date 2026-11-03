@@ -28,6 +28,9 @@ import json
 from app.service_pricing import amount, calculate_color_pricing, refresh_color_pricing
 from app.models import ServiceTemplate
 from app.service_examples import bucles_color_examples
+from app.price_import import MAX_UPLOAD, read_price_workbook, match_prices, save_draft, load_draft, apply_prices, product_signature, sale_price
+import hmac
+import time
 
 
 CLIENT_EVALUATION_OPTIONS = {
@@ -150,6 +153,96 @@ def index():
     )
 
 # --- Rutas de Gestión de Productos ---
+
+@app.route('/products/prices/import', methods=['GET', 'POST'])
+def import_product_prices():
+    draft = None
+    token = session.get('product_price_import')
+    if request.method == 'POST':
+        request.max_content_length = MAX_UPLOAD + 1024 * 1024
+        action = request.form.get('action') or request.args.get('action')
+        try:
+            if action == 'upload':
+                uploaded = request.files.get('file')
+                if not uploaded or not uploaded.filename or not uploaded.filename.lower().endswith('.xlsx'):
+                    raise ValueError('Selecciona una lista de precios en formato .xlsx.')
+                parsed = read_price_workbook(uploaded.stream.read(MAX_UPLOAD + 1))
+                draft = match_prices(parsed)
+                draft.update(created=time.time(), filename=uploaded.filename[:255])
+                token = save_draft(draft)
+                session['product_price_import'] = token
+                return redirect(url_for('import_product_prices'))
+            if not isinstance(token, str) or not hmac.compare_digest(request.form.get('token', ''), token):
+                raise ValueError('La confirmacion no es valida. Genera nuevamente la vista previa.')
+            draft = load_draft(token)
+            products = {product.id: product for product in Product.query.all()}
+            mapping_changed = False
+            for key, value in request.form.items():
+                if not key.startswith('row_'):
+                    continue
+                try:
+                    index = int(key[4:])
+                    product_id = int(value) if value else None
+                except ValueError:
+                    raise ValueError('Seleccion de producto invalida.') from None
+                if not 0 <= index < len(draft['rows']) or (product_id is not None and product_id not in products):
+                    raise ValueError('Seleccion de producto invalida.')
+                row = draft['rows'][index]
+                if product_id != row.get('product_id'):
+                    mapping_changed = True
+                    row.update(product_id=product_id, expected=product_signature(products[product_id]) if product_id else None,
+                               reason='Seleccion manual' if product_id else 'Ignorar')
+            if action not in ('review', 'apply', 'discard'):
+                raise ValueError('Accion no valida.')
+            if action == 'discard':
+                session.pop('product_price_import', None)
+                return redirect(url_for('import_product_prices'))
+            save_draft(draft, token)
+            if action == 'apply':
+                if mapping_changed:
+                    flash('Vinculos actualizados. Revisa los importes de la vista previa y vuelve a confirmar.', 'warning')
+                    return redirect(url_for('import_product_prices'))
+                count = apply_prices(draft)
+                session.pop('product_price_import', None)
+                flash(f'Se actualizaron {count} precios. Se conservaron el stock y los porcentajes de venta.', 'success')
+                return redirect(url_for('products'))
+            flash('Seleccion guardada.', 'success')
+            return redirect(url_for('import_product_prices', page=request.form.get('page_to', 1),
+                                    status=request.form.get('status', 'matched'), sheet=request.form.get('sheet', '')))
+        except ValueError as error:
+            db.session.rollback()
+            flash(str(error), 'danger')
+        except Exception:
+            db.session.rollback()
+            app.logger.warning('No se pudo procesar la lista de precios Excel.')
+            flash('No se pudo procesar el Excel. Revisa el archivo y la migracion de la base de datos.', 'danger')
+    if token:
+        try:
+            draft = load_draft(token)
+        except ValueError as error:
+            session.pop('product_price_import', None)
+            flash(str(error), 'warning')
+    matched = sum(bool(row.get('product_id')) for row in draft['rows']) if draft else 0
+    status = request.values.get('status', 'matched' if matched else 'unmatched')
+    if status not in ('all', 'matched', 'unmatched'):
+        status = 'matched'
+    sheet = request.values.get('sheet', '')
+    visible = []
+    if draft:
+        visible = [row for row in draft['rows'] if (not sheet or row['sheet'] == sheet)
+                   and (status == 'all' or bool(row.get('product_id')) == (status == 'matched'))]
+    pages = max(1, (len(visible) + 49) // 50)
+    page = min(pages, max(1, request.values.get('page', 1, type=int)))
+    page_rows = visible[(page - 1) * 50:page * 50]
+    for row in page_rows:
+        try:
+            row['sale_preview'] = str(sale_price(row['price'], row['expected']['sale_percentage'])) if row.get('expected') else None
+        except ValueError:
+            row['sale_preview'] = None
+    return render_template('import_product_prices.html', title='Actualizar precios desde Excel',
+                           draft=draft, token=token, rows=page_rows,
+                           matched=matched, page=page, pages=pages, status=status, sheet=sheet,
+                           products=Product.query.order_by(Product.brand, Product.description).all())
 
 @app.route('/products')
 def products():

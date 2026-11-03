@@ -28,9 +28,16 @@ class Product(db.Model):
     order_items = db.relationship('OrderItem', backref='product', lazy=True)
     # Relación para la asociación con servicios
     service_associations = db.relationship('UsedProduct', back_populates='product')
+    price_list_links = db.relationship('ProductPriceLink', cascade='all, delete-orphan', back_populates='product')
 
     def __repr__(self):
         return f"<Product {self.description} ({self.brand})>"
+
+class ProductPriceLink(db.Model):
+    source_key = db.Column(db.String(64), primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False, index=True)
+    product = db.relationship('Product', back_populates='price_list_links')
+
 
 class Order(db.Model):
     """
